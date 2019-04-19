@@ -4,7 +4,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Fruit Gibs",
+	name = "Gibs",
 	author = "murlis",
 	description = "Player gib effects on death. Headshots spawn additional/different effects.",
 	version = "1.0",
