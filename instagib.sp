@@ -26,7 +26,7 @@ https://raw.githubusercontent.com/PremyslTalich/ColorVariables/master/csgo%20col
 #include <sdkhooks>
 #include <cstrike>
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
 	name = "Murlisgib",
 	author = "murlis",
@@ -144,7 +144,7 @@ public Action EndMap(Handle timer)
 		if (IsClientInGame(client))
 			ForcePlayerSuicide(client);
 	}
-	
+
 	CreateTimer(1.0, EndMapReset);
 }
 
@@ -198,7 +198,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	Format(weaponName, 32, "weapon_%s", weaponName); // adds the prefix
 
 	bool headshot = GetEventBool(event, "headshot");
-	
+
 	char sound[255] = "none";
 	char soundGlobal[255] = "none";
 	float volume = 1.0;
@@ -228,7 +228,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 				if (gl_matchInProgress)
 				{
 					PrintHintTextToAll("<span class='fontSize-xs'>ุ</span><br>[<font color='#ECE37A'>SHOTGUN</font>]<span> </span><span> </span><font color='#EA4B4B'>✖</font> <font color='#AAAEB3'>%s</font>", victimName);
-					
+
 					volume = 0.5;
 					sound = "ui/xp_rankdown_02.wav";
 					EmitSoundToAll(sound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
@@ -279,7 +279,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 			{
 				if (GetPlayerWeaponSlot(attackerClient, 0) == -1) // Makes sure the player does not already have a primary weapon
 				{
-					GivePlayerItem(attackerClient, "weapon_mag7");
+					RequestFrame(GiveShotgun, attackerClient);
 
 					// Keep track of when Shotgun was given
 					gl_playerShotgunTimeSplit[attackerClient] = GetGameTime();
@@ -297,7 +297,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 						if (gl_matchInProgress)
 							PrintHintTextToAll("<span class='fontSize-xs'>ุ</span><br>[<font color='#ECE37A'>SHOTGUN</font>]<span> </span><span> </span><font color='#40FE40'>✔</font> <font color='#FFFFFF'>%s</font>", attackerName);
 					}
-					
+
 					gl_playerWithShotgun = attackerClient;
 
 					volume = 0.08;
@@ -314,7 +314,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 					if (gl_matchInProgress)
 					{
 						PrintHintTextToAll("<span class='fontSize-xs'>ุ</span><br>[<font color='#ECE37A'>SHOTGUN</font>]<span> </span><span> </span><font color='#EA4B4B'>✖</font> <font color='#AAAEB3'>%s</font>", victimName);
-						
+
 						volume = 0.5;
 						sound = "ui/xp_rankdown_02.wav";
 						EmitSoundToAll(sound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
@@ -427,6 +427,11 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	}
 }
 
+public void GiveShotgun(int client)
+{
+	GivePlayerItem(client, "weapon_mag7");
+}
+
 public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcast)
 {
 	int client_index = GetClientOfUserId(GetEventInt(event, "userid"));
@@ -455,7 +460,7 @@ public void EmitHealParticles(int client)
 {
 	// Particles visible to OTHER players
 	char effectName[64] = "player_heal";
-	
+
 	if (GetEntityFlags(client) & FL_DUCKING)
 		effectName = "player_heal_crouch";
 
@@ -479,7 +484,7 @@ public void EmitHealParticles(int client)
 	SetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity", client);
 	RemoveEdictAlwaysFlag(particle);
 	SDKHook(particle, SDKHook_SetTransmit, OnSetTransmitEmitHealParticles);
-	
+
 	// Particles for local client
 	TE_Start("EffectDispatch");
 	TE_WriteFloatArray("m_vOrigin.x", pos, 3);
@@ -491,12 +496,12 @@ public void EmitHealParticles(int client)
 	TE_SendToClient(client);
 }
 
-public void RemoveEdictAlwaysFlag(int edict) 
-{ 
-	if (GetEdictFlags(edict) & FL_EDICT_ALWAYS) 
-  { 
-		SetEdictFlags(edict, (GetEdictFlags(edict) ^ FL_EDICT_ALWAYS)); 
-	} 
+public void RemoveEdictAlwaysFlag(int edict)
+{
+	if (GetEdictFlags(edict) & FL_EDICT_ALWAYS)
+	{
+		SetEdictFlags(edict, (GetEdictFlags(edict) ^ FL_EDICT_ALWAYS));
+	}
 }
 
 public Action OnSetTransmitEmitHealParticles(int entity, int client)
@@ -506,7 +511,7 @@ public Action OnSetTransmitEmitHealParticles(int entity, int client)
 	{
 		return Plugin_Continue;
 	}
-	return Plugin_Handled;  
+	return Plugin_Handled;
 }
 
 stock int GetParticleEffectIndex(const char[] sEffectName)
@@ -800,7 +805,7 @@ public Action Command_M4(int client, int args)
 		}
 		else
 			ReplyToCommand(client, " \x0F[Murlisgib]\x01 M4 removed");
-		
+
 		return Plugin_Handled;
 	}
 
@@ -810,7 +815,7 @@ public Action Command_M4(int client, int args)
 	char target_name[MAX_TARGET_LENGTH];
 	int target_list[MAXPLAYERS], target_count;
 	bool tn_is_ml;
-	
+
 	if ((target_count = ProcessTargetString(
 			arg,
 			client,
@@ -824,7 +829,7 @@ public Action Command_M4(int client, int args)
 		ReplyToCommand(client, " \x0F[Murlisgib]\x01 No matching client found");
 		return Plugin_Handled;
 	}
-	
+
 	for (int i = 0; i < target_count; i++)
 	{
 		ToggleM4(target_list[i]);
@@ -845,7 +850,7 @@ public Action Command_M4(int client, int args)
 			PrintToChat(target_list[i], " \x0F[Murlisgib]\x01 M4 removed by %s", clientName);
 		}
 	}
-	
+
 	return Plugin_Handled;
 }
 
@@ -869,7 +874,7 @@ void ToggleM4(int target)
 			gl_playerWithShotgun = 0;
 			CountShotgunTimeSplit(target);
 		}
-		
+
 	}
 	else
 	{
@@ -892,7 +897,7 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 		weapon = GetPlayerWeaponSlot(client, 0);
 		if (weapon >= 0)
 			RemovePlayerItem(client, weapon);
-		
+
 		GivePlayerItem(client, "weapon_m4a1_silencer");
 	}
 }
