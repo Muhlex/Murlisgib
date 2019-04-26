@@ -62,14 +62,6 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
-	// Set default Rank to 1
-	/*
-	for (int iClient = 1; iClient <= MAXPLAYERS; iClient++)
-	{
-		g_iClientRank[iClient] = 1;
-	}
-	*/
-
 	HookEvent("player_death", Event_PlayerDeath);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
@@ -147,8 +139,7 @@ public Action Timer_XpBase(Handle hTimer)
 			g_iClientXp[iClient] += XP_BASE_RATE;
 			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
 
-			// DEBUG!!!
-			GetRank(iClient);
+			UpdateRank(iClient);
 		}
 	}
 
@@ -173,7 +164,7 @@ stock void SaveXpAll()
 	}
 }
 
-stock int GetRank(int iClient)
+stock int UpdateRank(int iClient)
 {
 	// If current client has max Rank
 	if (g_iClientRank[iClient] >= sizeof(g_iRankNeededXp) - 1)
@@ -195,7 +186,9 @@ stock int GetRank(int iClient)
 			g_iClientRank[iClient] = i;
 			ApplyMVPs(iClient);
 			PrintToChat(iClient, " \x0FYou have reached Rank: %i \x10[%i XP]", i, g_iRankNeededXp[i]);
-
+		}
+		else
+		{
 			break;
 		}
 	}
@@ -249,8 +242,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
 	}
 
-	// DEBUG!!!
-	GetRank(iAttacker);
+	UpdateRank(iAttacker);
 }
 
 public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
