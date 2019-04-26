@@ -32,10 +32,21 @@ https://raw.githubusercontent.com/PremyslTalich/ColorVariables/master/csgo%20col
 #define XP_ON_KNIFE 100
 #define XP_ON_SHOTGUN 25
 
-int g_iCurrentXp[MAXPLAYERS + 1];
-int g_iRank[MAXPLAYERS + 1];
+int g_iRankNeededXp[] =
+{
+	0,    // unused
+	0,    // 1
+	200,  // 2
+	400,  // 3
+	800,   // 4
+	1600  // 5
+};
+
+int g_iClientXp[MAXPLAYERS + 1];
+int g_iClientRank[MAXPLAYERS + 1];
 
 Handle g_hTimer_XpBase = INVALID_HANDLE;
+
 
 
 public Plugin myinfo =
@@ -51,31 +62,59 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
+	// Set default Rank to 1
+	/*
+	for (int iClient = 1; iClient <= MAXPLAYERS; iClient++)
+	{
+		g_iClientRank[iClient] = 1;
+	}
+	*/
+
 	HookEvent("player_death", Event_PlayerDeath);
+	HookEvent("player_spawn", Event_PlayerSpawn);
 
 	RegConsoleCmd("xp", Command_ShowXp);
-	RegConsoleCmd("updaterank", Command_UpdateRank);
+	RegConsoleCmd("setrank", Command_SetRank);
 }
 
 public Action Command_ShowXp(int iClient, int iArgs)
 {
-	PrintToChat(iClient, " \x0FYour current XP for this match: %iXP", g_iCurrentXp[iClient]);
+	PrintToChat(iClient, " \x0FYour current XP for this match: %iXP", g_iClientXp[iClient]);
+	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
 }
 
-public Action Command_UpdateRank (int iClient, int iArgs)
+public Action Command_SetRank (int iClient, int iArgs)
 {
 	char szArg[65];
-	int iArg;
 	GetCmdArg(1, szArg, sizeof(szArg));
 
+	int iArg;
 	iArg = StringToInt(szArg);
 
-	if (iArg == 0)
+	if (iClient < 1)
 	{
 		return;
 	}
 
-	CS_SetMVPCount(iClient, iArg);
+	if ((iArg < 1) || (iArg > sizeof(g_iRankNeededXp) - 1))
+	{
+		PrintToChat(iClient, " \x0FYou did not enter a valid rank.");
+		return;
+	}
+
+	g_iClientXp[iClient] = g_iRankNeededXp[iArg];
+	g_iClientRank[iClient] = iArg;
+	ApplyMVPs(iClient);
+
+	PrintToChat(iClient, " \x0FRank set to: %i \x10[%i XP]", g_iClientRank[iClient], g_iClientXp[iClient]);
+}
+
+public void OnClientPostAdminCheck(int iClient)
+{
+	if (!IsFakeClient(iClient))
+	{
+		g_iClientRank[iClient] = 1;
+	}
 }
 
 public void OnMapStart()
@@ -105,8 +144,11 @@ public Action Timer_XpBase(Handle hTimer)
 	{
 		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
 		{
-			g_iCurrentXp[iClient] += XP_BASE_RATE;
+			g_iClientXp[iClient] += XP_BASE_RATE;
 			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
+
+			// DEBUG!!!
+			GetRank(iClient);
 		}
 	}
 
@@ -118,7 +160,7 @@ stock void SaveXp(int iClient)
 {
 	// TODO: Add client's XP to a database
 
-	g_iCurrentXp[iClient] = 0;
+	g_iClientXp[iClient] = 0;
 }
 
 stock void SaveXpAll()
@@ -127,7 +169,35 @@ stock void SaveXpAll()
 
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
-		g_iCurrentXp[iClient] = 0;
+		g_iClientXp[iClient] = 0;
+	}
+}
+
+stock int GetRank(int iClient)
+{
+	// If current client has max Rank
+	if (g_iClientRank[iClient] >= sizeof(g_iRankNeededXp) - 1)
+	{
+		return;
+	}
+
+	// If current client XP < needed XP for the next rank
+	if (g_iClientXp[iClient] < g_iRankNeededXp[g_iClientRank[iClient] + 1])
+	{
+		return;
+	}
+
+	// Loop through XP <-> Rank Definitions
+	for (int i = g_iClientRank[iClient] + 1; i <= sizeof(g_iRankNeededXp) - 1; i++)
+	{
+		if (g_iClientXp[iClient] >= g_iRankNeededXp[i])
+		{
+			g_iClientRank[iClient] = i;
+			ApplyMVPs(iClient);
+			PrintToChat(iClient, " \x0FYou have reached Rank: %i \x10[%i XP]", i, g_iRankNeededXp[i]);
+
+			break;
+		}
 	}
 }
 
@@ -137,12 +207,18 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	int  iAttacker = GetClientOfUserId(GetEventInt(event, "attacker"));
 	bool bHeadshot = GetEventBool(event, "headshot");
 
-	// Check if both parties are players and if killer was a human player
-	if (!IsClientInGame(iVictim) || !IsClientInGame(iAttacker) || IsFakeClient(iAttacker)) {
+	// Filter for valid clients only
+	if (iAttacker < 1 || iAttacker > GetMaxHumanPlayers())
+	{
 		return;
 	}
 
-	// Check for direct suicides
+	// Filter for humans only
+	if (IsFakeClient(iAttacker)) {
+		return;
+	}
+
+	// Filter out direct suicides
 	if (iVictim == iAttacker) {
 		return;
 	}
@@ -154,25 +230,37 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 
 	if (StrEqual(szWeapon, "weapon_mag7"))
 	{
-		g_iCurrentXp[iAttacker] += XP_ON_SHOTGUN;
+		g_iClientXp[iAttacker] += XP_ON_SHOTGUN;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Shotgun Kill.", XP_ON_SHOTGUN);
-		return;
 	}
-
-	if (bHeadshot && StrEqual(szWeapon, "weapon_hkp2000"))
+	else if (bHeadshot && StrEqual(szWeapon, "weapon_hkp2000"))
 	{
-		g_iCurrentXp[iAttacker] += XP_ON_HEADSHOT;
+		g_iClientXp[iAttacker] += XP_ON_HEADSHOT;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Railgun-Headshot Kill.", XP_ON_HEADSHOT);
-		return;
 	}
-
-	if (StrEqual(szWeapon, "weapon_knife"))
+	else if (StrEqual(szWeapon, "weapon_knife"))
 	{
-		g_iCurrentXp[iAttacker] += XP_ON_KNIFE;
+		g_iClientXp[iAttacker] += XP_ON_KNIFE;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Knife Kill.", XP_ON_KNIFE);
-		return;
+	}
+	else
+	{
+		g_iClientXp[iAttacker] += XP_ON_KILL;
+		PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
 	}
 
-	g_iCurrentXp[iAttacker] += XP_ON_KILL;
-	PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
+	// DEBUG!!!
+	GetRank(iAttacker);
+}
+
+public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
+{
+	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
+
+	RequestFrame(ApplyMVPs, iClient);
+}
+
+stock void ApplyMVPs(int iClient)
+{
+	CS_SetMVPCount(iClient, g_iClientRank[iClient]);
 }
