@@ -26,19 +26,19 @@ https://raw.githubusercontent.com/PremyslTalich/ColorVariables/master/csgo%20col
 #include <sdktools>
 #include <cstrike>
 
-#define XP_BASE_RATE 10
-#define XP_ON_KILL 50
-#define XP_ON_HEADSHOT 100
-#define XP_ON_KNIFE 100
-#define XP_ON_SHOTGUN 25
+#define XP_BASE_RATE 5
+#define XP_ON_KILL 10
+#define XP_ON_HEADSHOT 15
+#define XP_ON_KNIFE 20
+#define XP_ON_SHOTGUN 5
 
 int g_iRankNeededXp[] =
-{
-	0,    // unused
+{       // RANK:
+	0,    // 0 (unused)
 	0,    // 1
-	200,  // 2
-	400,  // 3
-	800,   // 4
+	400,  // 2
+	800,  // 3
+	1200, // 4
 	1600  // 5
 };
 
