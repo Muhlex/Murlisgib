@@ -1,24 +1,3 @@
-/*
-default				\x01
-teamcolor			\x03
-red						\x07
-lightred			\x0F
-darkred				\x02
-bluegrey			\x0A
-blue					\x0B
-darkblue			\x0C
-purple				\x03
-orchid				\x0E
-yellow				\x09
-gold					\x10
-lightgreen		\x05
-green					\x04
-lime					\x06
-grey					\x08
-grey2					\x0D
-https://raw.githubusercontent.com/PremyslTalich/ColorVariables/master/csgo%20colors.png
-*/
-
 #pragma semicolon 1
 #pragma newdecls required
 
@@ -42,6 +21,9 @@ int g_iRankNeededXp[] =
 	1600  // 5
 };
 
+int g_iRankNeededXpFlat = 2000;
+int g_iRankMax = 100;
+
 int g_iClientXp[MAXPLAYERS + 1];
 int g_iClientRank[MAXPLAYERS + 1];
 
@@ -60,92 +42,8 @@ public Plugin myinfo =
 
 
 
-public void OnPluginStart()
-{
-	HookEvent("player_death", Event_PlayerDeath);
-	HookEvent("player_spawn", Event_PlayerSpawn);
-
-	RegConsoleCmd("xp", Command_ShowXp);
-	RegConsoleCmd("setrank", Command_SetRank);
-}
-
-public Action Command_ShowXp(int iClient, int iArgs)
-{
-	PrintToChat(iClient, " \x0FYour current XP for this match: %iXP", g_iClientXp[iClient]);
-	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
-}
-
-public Action Command_SetRank (int iClient, int iArgs)
-{
-	char szArg[65];
-	GetCmdArg(1, szArg, sizeof(szArg));
-
-	int iArg;
-	iArg = StringToInt(szArg);
-
-	if (iClient < 1)
-	{
-		return;
-	}
-
-	if ((iArg < 1) || (iArg > sizeof(g_iRankNeededXp) - 1))
-	{
-		PrintToChat(iClient, " \x0FYou did not enter a valid rank.");
-		return;
-	}
-
-	g_iClientXp[iClient] = g_iRankNeededXp[iArg];
-	g_iClientRank[iClient] = iArg;
-	ApplyMVPs(iClient);
-
-	PrintToChat(iClient, " \x0FRank set to: %i \x10[%i XP]", g_iClientRank[iClient], g_iClientXp[iClient]);
-}
-
-public void OnClientPostAdminCheck(int iClient)
-{
-	if (!IsFakeClient(iClient))
-	{
-		g_iClientRank[iClient] = 1;
-	}
-}
-
-public void OnMapStart()
-{
-	g_hTimer_XpBase = CreateTimer(10.0, Timer_XpBase, _, TIMER_REPEAT);
-}
-
-public void OnMapEnd()
-{
-	if (g_hTimer_XpBase != INVALID_HANDLE)
-	{
-		KillTimer(g_hTimer_XpBase, false);
-		g_hTimer_XpBase = INVALID_HANDLE;
-	}
-
-	SaveXpAll();
-}
-
-public void OnClientDisconnect(int iClient)
-{
-	SaveXp(iClient);
-}
-
-public Action Timer_XpBase(Handle hTimer)
-{
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
-	{
-		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
-		{
-			g_iClientXp[iClient] += XP_BASE_RATE;
-			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
-
-			UpdateRank(iClient);
-		}
-	}
-
-	// Continue Timer
-	return Plugin_Continue;
-}
+// STOCK FUNCTIONS
+// ---------------
 
 stock void SaveXp(int iClient)
 {
@@ -192,6 +90,71 @@ stock int UpdateRank(int iClient)
 			break;
 		}
 	}
+}
+
+stock void ApplyMVPs(int iClient)
+{
+	CS_SetMVPCount(iClient, g_iClientRank[iClient]);
+}
+
+
+
+// PUBLIC FUNCTIONS
+// ----------------
+
+public void OnPluginStart()
+{
+	HookEvent("player_death", Event_PlayerDeath);
+	HookEvent("player_spawn", Event_PlayerSpawn);
+
+	RegConsoleCmd("xp", Command_ShowXp);
+	RegConsoleCmd("setrank", Command_SetRank);
+}
+
+public void OnClientPostAdminCheck(int iClient)
+{
+	if (!IsFakeClient(iClient))
+	{
+		g_iClientRank[iClient] = 1;
+	}
+}
+
+public void OnMapStart()
+{
+	g_hTimer_XpBase = CreateTimer(10.0, Timer_XpBase, _, TIMER_REPEAT);
+}
+
+public void OnMapEnd()
+{
+	if (g_hTimer_XpBase != INVALID_HANDLE)
+	{
+		KillTimer(g_hTimer_XpBase, false);
+		g_hTimer_XpBase = INVALID_HANDLE;
+	}
+
+	SaveXpAll();
+}
+
+public void OnClientDisconnect(int iClient)
+{
+	SaveXp(iClient);
+}
+
+public Action Timer_XpBase(Handle hTimer)
+{
+	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	{
+		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
+		{
+			g_iClientXp[iClient] += XP_BASE_RATE;
+			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
+
+			UpdateRank(iClient);
+		}
+	}
+
+	// Continue Timer
+	return Plugin_Continue;
 }
 
 public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
@@ -252,7 +215,39 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 	RequestFrame(ApplyMVPs, iClient);
 }
 
-stock void ApplyMVPs(int iClient)
+
+
+// COMMAND FUNCTIONS
+// -----------------
+
+public Action Command_ShowXp(int iClient, int iArgs)
 {
-	CS_SetMVPCount(iClient, g_iClientRank[iClient]);
+	PrintToChat(iClient, " \x0FYour current XP for this match: %iXP", g_iClientXp[iClient]);
+	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
+}
+
+public Action Command_SetRank (int iClient, int iArgs)
+{
+	char szArg[65];
+	GetCmdArg(1, szArg, sizeof(szArg));
+
+	int iArg;
+	iArg = StringToInt(szArg);
+
+	if (iClient < 1)
+	{
+		return;
+	}
+
+	if ((iArg < 1) || (iArg > sizeof(g_iRankNeededXp) - 1))
+	{
+		PrintToChat(iClient, " \x0FYou did not enter a valid rank.");
+		return;
+	}
+
+	g_iClientXp[iClient] = g_iRankNeededXp[iArg];
+	g_iClientRank[iClient] = iArg;
+	ApplyMVPs(iClient);
+
+	PrintToChat(iClient, " \x0FRank set to: %i \x10[%i XP]", g_iClientRank[iClient], g_iClientXp[iClient]);
 }
