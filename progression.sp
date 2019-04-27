@@ -53,7 +53,7 @@ public Plugin myinfo =
 // STOCK FUNCTIONS
 // ---------------
 
-stock void ConnectSQL()
+stock void ConnectDB()
 {
 	char szError[255];
 	g_db = SQL_Connect("murlisgib", true, szError, sizeof(szError));
@@ -68,6 +68,34 @@ stock void ConnectSQL()
 	SQL_UnlockDatabase(g_db);
 }
 
+stock void Callback_Generic(Handle hOwner, Handle hQuery, const char[] szError, any data)
+{
+	if (hQuery == INVALID_HANDLE)
+	{
+		ThrowError("SQL Error: %s", szError);
+		return;
+	}
+}
+
+stock void AddPlayerDB(int iClient)
+{
+	if (IsClientConnected(iClient) && !IsFakeClient(iClient))
+	{
+		char szSteamId[21];
+		char szQuery[200];
+
+		if (GetClientAuthId(iClient, AuthId_Engine, szSteamId, sizeof(szSteamId), true))
+		{
+			Format(szQuery, sizeof(szQuery), "INSERT INTO player (steam_id, xp) VALUES ('%s', %i)", szSteamId, 0);
+			SQL_TQuery(g_db, Callback_Generic, szQuery);
+		}
+		else
+		{
+			ThrowError("Steam ID of client %i could not be retrieved from gameserver!", iClient);
+		}
+	}
+}
+
 stock void LoadXP(int iClient)
 {
 	if (IsClientConnected(iClient) && !IsFakeClient(iClient))
@@ -78,7 +106,7 @@ stock void LoadXP(int iClient)
 		if (GetClientAuthId(iClient, AuthId_Engine, szSteamId, sizeof(szSteamId), true))
 		{
 			Format(szQuery, sizeof(szQuery), "SELECT xp FROM player WHERE steam_id='%s' LIMIT 1;", szSteamId);
-			SQL_TQuery(g_db, Callback_SelectXP, szQuery, iClient);
+			SQL_TQuery(g_db, Callback_LoadXP, szQuery, iClient);
 		}
 		else
 		{
@@ -87,7 +115,7 @@ stock void LoadXP(int iClient)
 	}
 }
 
-stock void Callback_SelectXP(Handle hOwner, Handle hQuery, const char[] szError, any iClient)
+stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, any iClient)
 {
 	if (hQuery == INVALID_HANDLE)
 	{
@@ -102,27 +130,53 @@ stock void Callback_SelectXP(Handle hOwner, Handle hQuery, const char[] szError,
 		iClientXP = SQL_FetchInt(hQuery, 0);
 	}
 
-	PrintToServer("CLIENT DB RANK: %i", iClientXP);
+	if (iClientXP < 0)
+	{
+		AddPlayerDB(iClient);
+	}
+	else
+	{
+		g_iClientXp[iClient] = iClientXP;
+		UpdateRank(iClient);
+	}
 }
 
 stock void SaveXP(int iClient)
 {
-	// TODO: Add client's XP to a database
+	if (IsClientConnected(iClient) && !IsFakeClient(iClient))
+	{
+		char szSteamId[21];
+		char szQuery[200];
 
-	g_iClientXp[iClient] = 0;
+		if (GetClientAuthId(iClient, AuthId_Engine, szSteamId, sizeof(szSteamId), true))
+		{
+			Format(szQuery, sizeof(szQuery), "UPDATE player SET xp = %i WHERE steam_id='%s';", g_iClientXp[iClient], szSteamId);
+			SQL_TQuery(g_db, Callback_Generic, szQuery);
+		}
+		else
+		{
+			ThrowError("Steam ID of client %i could not be retrieved from gameserver!", iClient);
+		}
+	}
+}
+
+stock void LoadXPAll()
+{
+	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	{
+		LoadXP(iClient);
+	}
 }
 
 stock void SaveXPAll()
 {
-	// TODO: Add all client's XP to a database
-
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
-		g_iClientXp[iClient] = 0;
+		SaveXP(iClient);
 	}
 }
 
-stock int UpdateRank(int iClient)
+stock int UpdateRank(int iClient, bool bAnnounce = false)
 {
 	// If current client has max Rank
 	if (g_iClientRank[iClient] >= sizeof(g_iRankNeededXp) - 1)
@@ -143,7 +197,11 @@ stock int UpdateRank(int iClient)
 		{
 			g_iClientRank[iClient] = i;
 			ApplyMVPs(iClient);
-			PrintToChat(iClient, " \x0FYou have reached Rank: %i \x10[%i XP]", i, g_iRankNeededXp[i]);
+
+			if (bAnnounce)
+			{
+				PrintToChat(iClient, " \x0FYou have reached Rank: %i \x10[%i XP]", i, g_iRankNeededXp[i]);
+			}
 		}
 		else
 		{
@@ -173,7 +231,13 @@ public void OnPluginStart()
 	RegConsoleCmd("xp", Command_ShowXP);
 	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY);
 
-	ConnectSQL();
+	ConnectDB();
+	LoadXPAll();
+}
+
+public void OnPluginEnd()
+{
+	SaveXPAll();
 }
 
 public void OnClientPostAdminCheck(int iClient)
@@ -216,7 +280,7 @@ public Action Timer_XpBase(Handle hTimer)
 			g_iClientXp[iClient] += XP_BASE_RATE;
 			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
 
-			UpdateRank(iClient);
+			UpdateRank(iClient, true);
 		}
 	}
 
@@ -272,7 +336,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
 	}
 
-	UpdateRank(iAttacker);
+	UpdateRank(iAttacker, true);
 }
 
 public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
@@ -306,7 +370,7 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 
 public Action Command_ShowXP(int iClient, int iArgs)
 {
-	PrintToChat(iClient, " \x0FYour current XP for this match: %iXP", g_iClientXp[iClient]);
+	PrintToChat(iClient, " \x0FYour total earned XP: %iXP", g_iClientXp[iClient]);
 	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
 }
 
