@@ -19,7 +19,7 @@ int g_iRankNeededXp[] =
 	1200, // 3 (800)
 	2400, // 4 (1200)
 	4000, // 5 (1600)
-	6000, 8000, 10000, 12000, 14000, // 6-10
+	6000, 8000, 10000, 12000, 14000, // 6-10 (2000)
 	16000, 18000, 20000, 22000, 24000, 26000, 28000, 30000, 32000, 34000,
 	36000, 38000, 40000, 42000, 44000, 46000, 48000, 50000, 52000, 54000,
 	56000, 58000, 60000, 62000, 64000, 66000, 68000, 70000, 72000, 74000,
@@ -35,6 +35,7 @@ int g_iClientXp[MAXPLAYERS + 1];
 int g_iClientRank[MAXPLAYERS + 1];
 
 Handle g_hTimer_XpBase = INVALID_HANDLE;
+Database g_db;
 
 
 
@@ -52,16 +53,68 @@ public Plugin myinfo =
 // STOCK FUNCTIONS
 // ---------------
 
-stock void SaveXp(int iClient)
+stock void ConnectSQL()
+{
+	char szError[255];
+	g_db = SQL_Connect("murlisgib", true, szError, sizeof(szError));
+
+	if (g_db == null)
+	{
+		SetFailState("Could not connect to Murlisgib database: %s", szError);
+	}
+
+	SQL_LockDatabase(g_db);
+	SQL_FastQuery(g_db, "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTOINCREMENT, steam_id TEXT UNIQUE, xp INT);");
+	SQL_UnlockDatabase(g_db);
+}
+
+stock void LoadXP(int iClient)
+{
+	if (IsClientConnected(iClient) && !IsFakeClient(iClient))
+	{
+		char szSteamId[21];
+		char szQuery[200];
+
+		if (GetClientAuthId(iClient, AuthId_Engine, szSteamId, sizeof(szSteamId), true))
+		{
+			Format(szQuery, sizeof(szQuery), "SELECT xp FROM player WHERE steam_id='%s' LIMIT 1;", szSteamId);
+			SQL_TQuery(g_db, Callback_SelectXP, szQuery, iClient);
+		}
+		else
+		{
+			ThrowError("Steam ID of client %i could not be retrieved from gameserver!", iClient);
+		}
+	}
+}
+
+stock void Callback_SelectXP(Handle hOwner, Handle hQuery, const char[] szError, any iClient)
+{
+	if (hQuery == INVALID_HANDLE)
+	{
+		ThrowError("Error retrieving Client %i XP: %s", iClient, szError);
+		return;
+	}
+
+	int iClientXP = -1;
+
+	while (SQL_FetchRow(hQuery))
+	{
+		iClientXP = SQL_FetchInt(hQuery, 0);
+	}
+
+	PrintToServer("CLIENT DB RANK: %i", iClientXP);
+}
+
+stock void SaveXP(int iClient)
 {
 	// TODO: Add client's XP to a database
 
 	g_iClientXp[iClient] = 0;
 }
 
-stock void SaveXpAll()
+stock void SaveXPAll()
 {
-	// TODO: Add client's XP to a database
+	// TODO: Add all client's XP to a database
 
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
@@ -101,7 +154,10 @@ stock int UpdateRank(int iClient)
 
 stock void ApplyMVPs(int iClient)
 {
-	CS_SetMVPCount(iClient, g_iClientRank[iClient]);
+	if (IsClientInGame(iClient))
+	{
+		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
+	}
 }
 
 
@@ -114,8 +170,10 @@ public void OnPluginStart()
 	HookEvent("player_death", Event_PlayerDeath);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
-	RegConsoleCmd("xp", Command_ShowXp);
-	RegConsoleCmd("setrank", Command_SetRank);
+	RegConsoleCmd("xp", Command_ShowXP);
+	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY);
+
+	ConnectSQL();
 }
 
 public void OnClientPostAdminCheck(int iClient)
@@ -124,6 +182,8 @@ public void OnClientPostAdminCheck(int iClient)
 	{
 		g_iClientRank[iClient] = 1;
 	}
+
+	LoadXP(iClient);
 }
 
 public void OnMapStart()
@@ -139,12 +199,12 @@ public void OnMapEnd()
 		g_hTimer_XpBase = INVALID_HANDLE;
 	}
 
-	SaveXpAll();
+	SaveXPAll();
 }
 
 public void OnClientDisconnect(int iClient)
 {
-	SaveXp(iClient);
+	SaveXP(iClient);
 }
 
 public Action Timer_XpBase(Handle hTimer)
@@ -244,7 +304,7 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 // COMMAND FUNCTIONS
 // -----------------
 
-public Action Command_ShowXp(int iClient, int iArgs)
+public Action Command_ShowXP(int iClient, int iArgs)
 {
 	PrintToChat(iClient, " \x0FYour current XP for this match: %iXP", g_iClientXp[iClient]);
 	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
