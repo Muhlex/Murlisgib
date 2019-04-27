@@ -8,7 +8,7 @@
 #define XP_BASE_RATE 5
 #define XP_ON_KILL 10
 #define XP_ON_HEADSHOT 15
-#define XP_ON_KNIFE 500 //20
+#define XP_ON_KNIFE 20
 #define XP_ON_SHOTGUN 5
 
 int g_iRankNeededXp[] =
@@ -151,7 +151,7 @@ public Action Timer_XpBase(Handle hTimer)
 {
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
-		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
+		if (IsClientInGame(iClient) && !IsFakeClient(iClient) && GetClientTeam(iClient) > 1)
 		{
 			g_iClientXp[iClient] += XP_BASE_RATE;
 			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
