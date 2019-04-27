@@ -8,7 +8,7 @@
 #define XP_BASE_RATE 5
 #define XP_ON_KILL 10
 #define XP_ON_HEADSHOT 15
-#define XP_ON_KNIFE 20
+#define XP_ON_KNIFE 500 //20
 #define XP_ON_SHOTGUN 5
 
 int g_iRankNeededXp[] =
@@ -220,6 +220,23 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
 
 	RequestFrame(ApplyMVPs, iClient);
+}
+
+public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
+{
+	// Cancel if warmup ended instead of an actual round
+	if (reason == CSRoundEnd_GameStart)
+	{
+		return;
+	}
+
+	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	{
+		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
+		{
+			RequestFrame(ApplyMVPs, iClient);
+		}
+	}
 }
 
 
