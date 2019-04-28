@@ -57,6 +57,17 @@ float gl_playerShotgunTimeSplit[MAXPLAYERS + 1];
 char	gl_statStrings[4][940];
 float gl_statDelay 																= 0.0;
 
+// Expose Variables to other plugins
+public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] szError, int iErrorMaxLength)
+{
+	CreateNative("Murlisgib_GetWinner", Native_GetWinner);
+	return APLRes_Success;
+}
+
+public int Native_GetWinner(Handle hPlugin, int iNumParams)
+{
+	return gl_winningPlayer;
+}
 
 public void OnPluginStart()
 {
