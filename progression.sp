@@ -5,6 +5,9 @@
 #include <sdktools>
 #include <cstrike>
 
+#define SOUND_RANK_UP "ui/panorama/gameover_newskillgroup_01.wav"
+#define SOUND_RANK_UP_VOL 0.7
+
 #define XP_BASE_RATE 5
 #define XP_ON_KILL 10
 #define XP_ON_HEADSHOT 15
@@ -129,6 +132,7 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 		return;
 	}
 
+	// -1 == No result found
 	int iClientXP = -1;
 
 	while (SQL_FetchRow(hQuery))
@@ -136,6 +140,7 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 		iClientXP = SQL_FetchInt(hQuery, 0);
 	}
 
+	// If result found in database
 	if (iClientXP < 0)
 	{
 		AddPlayerDB(iClient);
@@ -207,6 +212,7 @@ stock int UpdateRank(int iClient, bool bAnnounce = false)
 			if (bAnnounce)
 			{
 				PrintToChat(iClient, " \x0FYou have reached Rank: %i \x10[%i XP]", i, g_iRankNeededXp[i]);
+				PlayClientSound(iClient, SOUND_RANK_UP, SOUND_RANK_UP_VOL);
 			}
 		}
 		else
@@ -225,12 +231,20 @@ stock void ApplyMVPs(int iClient)
 }
 
 
+stock void PlayClientSound(int iClient, char[] sound, float volume)
+{
+	EmitSoundToClient(iClient, sound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
+}
+
+
 
 // PUBLIC FUNCTIONS
 // ----------------
 
 public void OnPluginStart()
 {
+	PrecacheSound(SOUND_RANK_UP);
+
 	HookEvent("player_death", Event_PlayerDeath);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
