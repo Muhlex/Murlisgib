@@ -62,6 +62,19 @@ native int Murlisgib_GetWinner();
 // STOCK FUNCTIONS
 // ---------------
 
+stock void PlayClientSound(int iClient, char[] sound, float volume)
+{
+	EmitSoundToClient(iClient, sound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
+}
+
+stock void ApplyMVPs(int iClient)
+{
+	if (IsClientInGame(iClient))
+	{
+		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
+	}
+}
+
 stock void ConnectDB()
 {
 	char szError[255];
@@ -222,18 +235,47 @@ stock int UpdateRank(int iClient, bool bAnnounce = false)
 	}
 }
 
-stock void ApplyMVPs(int iClient)
+stock int GetRelativeXP(int iClient)
 {
-	if (IsClientInGame(iClient))
-	{
-		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
-	}
+	int iXPCurrentRank = g_iRankNeededXp[g_iClientRank[iClient]];
+
+	int iXPRelative = g_iClientXp[iClient] - iXPCurrentRank;
+
+	return iXPRelative;
 }
 
-
-stock void PlayClientSound(int iClient, char[] sound, float volume)
+stock int GetRelativeNeededXP(int iClient)
 {
-	EmitSoundToClient(iClient, sound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
+	int iXPCurrentRank = g_iRankNeededXp[g_iClientRank[iClient]];
+	int iXPNextRank = g_iRankNeededXp[g_iClientRank[iClient] + 1];
+
+	int iXPRelativeNeeded = iXPNextRank - iXPCurrentRank;
+
+	return iXPRelativeNeeded;
+}
+
+stock char[] GenerateXPBar(int iClient)
+{
+	float fXPPercent = float(GetRelativeXP(iClient)) / float(GetRelativeNeededXP(iClient));
+
+	int iBars = 20;
+	int iFilledBars = RoundToFloor(fXPPercent * iBars);
+
+	char szXPBar[61];
+
+	for (int iBar = 1; iBar <= iBars; iBar++)
+	{
+		if (iBar <= iFilledBars)
+		{
+			StrCat(szXPBar, sizeof(szXPBar), "█");
+		}
+		else
+		{
+			StrCat(szXPBar, sizeof(szXPBar), "░");
+		}
+	}
+
+	return szXPBar;
 }
 
 
@@ -248,8 +290,9 @@ public void OnPluginStart()
 	HookEvent("player_death", Event_PlayerDeath);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
-	RegConsoleCmd("xp", Command_ShowXP);
-	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY);
+	RegConsoleCmd("xp", Command_ShowXP, "xp [#userid|name]");
+	//RegAdminCmd("setxp", Command_SetXP, ADMFLAG_SLAY, "setxp <xp> [#userid|name]");
+	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY, "setrank <rank> [#userid|name]");
 
 	ConnectDB();
 	LoadXPAll();
@@ -395,10 +438,32 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 // COMMAND FUNCTIONS
 // -----------------
 
+// RegConsoleCmd("xp", Command_ShowXP, "xp [#userid|name]");
+// RegAdminCmd("setxp", Command_SetXP, ADMFLAG_SLAY, "setxp <xp> [#userid|name]");
+// RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY, "setrank <rank> [#userid|name]");
+
 public Action Command_ShowXP(int iClient, int iArgs)
 {
+	// If no Arguments given
+	if (iArgs <= 0)
+	{
+		// If command executed by server
+		if (iClient <= 0)
+		{
+			ReplyToCommand(iClient, "Usage: xp <#userid|name>");
+			return Plugin_Handled;
+		}
+
+		// Client executed command: Retrieve info about themselves
+
+		ReplyToCommand(iClient, "Your current Rank: %i", g_iClientRank[iClient]);
+		ReplyToCommand(iClient, "XP Bar: %s", GenerateXPBar(iClient));
+	}
+
 	PrintToChat(iClient, " \x0FYour total earned XP: %iXP", g_iClientXp[iClient]);
 	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
+
+	return Plugin_Handled;
 }
 
 public Action Command_SetRank (int iClient, int iArgs)
