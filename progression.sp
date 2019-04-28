@@ -254,24 +254,38 @@ stock int GetRelativeNeededXP(int iClient)
 	return iXPRelativeNeeded;
 }
 
-stock char[] GenerateXPBar(int iClient)
+stock float GetRelativeXPPercentage(int iClient)
 {
-	float fXPPercent = float(GetRelativeXP(iClient)) / float(GetRelativeNeededXP(iClient));
+	float fXPPercentage = float(GetRelativeXP(iClient)) / float(GetRelativeNeededXP(iClient));
 
-	int iBars = 20;
-	int iFilledBars = RoundToFloor(fXPPercent * iBars);
+	return fXPPercentage;
+}
 
-	char szXPBar[61];
+stock char[] GenerateProgressBar(float fPercentage, int iBars, char[] szColorFill, char[] szColorEmpty)
+{
+	// Symbol Reference: █░
+
+	int iFilledBars = RoundToCeil(fPercentage * iBars);
+
+	// Empty Space at the Beginning is necessary for Colors
+	char szXPBar[256] = " "; // XP-Bar Symbols take up more than one Character, thus using a large string
+
+	if (iFilledBars == 0)
+	{
+		StrCat(szXPBar, sizeof(szXPBar), szColorEmpty);
+	}
+	else
+	{
+		StrCat(szXPBar, sizeof(szXPBar), szColorFill);
+	}
 
 	for (int iBar = 1; iBar <= iBars; iBar++)
 	{
-		if (iBar <= iFilledBars)
+		StrCat(szXPBar, sizeof(szXPBar), "█");
+
+		if (iBar == iFilledBars)
 		{
-			StrCat(szXPBar, sizeof(szXPBar), "█");
-		}
-		else
-		{
-			StrCat(szXPBar, sizeof(szXPBar), "░");
+			StrCat(szXPBar, sizeof(szXPBar), szColorEmpty);
 		}
 	}
 
@@ -444,24 +458,60 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 
 public Action Command_ShowXP(int iClient, int iArgs)
 {
-	// If no Arguments given
-	if (iArgs <= 0)
+	// Specifies whose XP to show. Defaults to client calling the command
+	int iTargetClient = iClient;
+
+	// If command executed by server but no Arguments given
+	if ((iClient <= 0) && (iArgs <= 0))
 	{
-		// If command executed by server
-		if (iClient <= 0)
-		{
-			ReplyToCommand(iClient, "Usage: xp <#userid|name>");
-			return Plugin_Handled;
-		}
-
-		// Client executed command: Retrieve info about themselves
-
-		ReplyToCommand(iClient, "Your current Rank: %i", g_iClientRank[iClient]);
-		ReplyToCommand(iClient, "XP Bar: %s", GenerateXPBar(iClient));
+		ReplyToCommand(iClient, "Usage: xp <#userid|name>");
+		return Plugin_Handled;
 	}
 
-	PrintToChat(iClient, " \x0FYour total earned XP: %iXP", g_iClientXp[iClient]);
-	PrintToChat(iClient, " \x0FYour Rank: %i", g_iClientRank[iClient]);
+	if (iArgs >= 1)
+	{
+		char szArg[65];
+		GetCmdArg(1, szArg, sizeof(szArg));
+
+		char szTargetName[MAX_TARGET_LENGTH];
+		int iTargetList[MAXPLAYERS], iTargetCount;
+		bool bTargetIsML;
+
+		iTargetCount = ProcessTargetString(szArg, iClient, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, szTargetName, sizeof(szTargetName), bTargetIsML);
+
+		if (iTargetCount <= 0)
+		{
+			ReplyToCommand(iClient, " \x0B No matching client found");
+			return Plugin_Handled;
+		}
+		else if (iTargetCount > 1)
+		{
+			ReplyToCommand(iClient, " \x0B Multiple clients found, please try again");
+			return Plugin_Handled;
+		}
+		else
+		{
+			iTargetClient = iTargetList[0];
+		}
+	}
+
+	float fXPPercentage = GetRelativeXPPercentage(iTargetClient);
+	char szXPBar[256];
+	szXPBar = GenerateProgressBar(fXPPercentage, 20, "\x0C", "\x0A");
+
+	char szTargetName[35];
+	if (iTargetClient == iClient)
+	{
+		szTargetName = "Your";
+	}
+	else
+	{
+		GetClientName(iTargetClient, szTargetName, sizeof(szTargetName));
+		StrCat(szTargetName, sizeof(szTargetName), "'s");
+	}
+
+	ReplyToCommand(iTargetClient, " \x0BYour current Rank: \x0C%i", g_iClientRank[iTargetClient]);
+	ReplyToCommand(iTargetClient, " \x0B%iXP / %iXP  %s  \x0B[%.0f%%]", GetRelativeXP(iTargetClient), GetRelativeNeededXP(iTargetClient), szXPBar, fXPPercentage * 100);
 
 	return Plugin_Handled;
 }
