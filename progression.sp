@@ -10,6 +10,7 @@
 #define XP_ON_HEADSHOT 15
 #define XP_ON_KNIFE 20
 #define XP_ON_SHOTGUN 5
+#define XP_ON_WIN 200
 
 int g_iRankNeededXp[] =
 {       // RANK:
@@ -48,6 +49,11 @@ public Plugin myinfo =
 	url = "http://steamcommunity.com/id/muhlex"
 };
 
+
+
+// NATIVE FUNCTIONS
+// ----------------
+native int Murlisgib_GetWinner();
 
 
 // STOCK FUNCTIONS
@@ -230,9 +236,16 @@ public void OnPluginStart()
 
 	RegConsoleCmd("xp", Command_ShowXP);
 	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY);
+	RegConsoleCmd("test", Command_Test);
 
 	ConnectDB();
 	LoadXPAll();
+}
+
+//TEST
+public Action Command_Test(int iClient, int iArgs)
+{
+	PrintToChat(iClient, "Winner is Client %i", Murlisgib_GetWinner());
 }
 
 public void OnPluginEnd()
