@@ -236,16 +236,9 @@ public void OnPluginStart()
 
 	RegConsoleCmd("xp", Command_ShowXP);
 	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY);
-	RegConsoleCmd("test", Command_Test);
 
 	ConnectDB();
 	LoadXPAll();
-}
-
-//TEST
-public Action Command_Test(int iClient, int iArgs)
-{
-	PrintToChat(iClient, "Winner is Client %i", Murlisgib_GetWinner());
 }
 
 public void OnPluginEnd()
@@ -367,6 +360,7 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 		return;
 	}
 
+	// Overwrite MVP set by the game
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
 		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
@@ -374,6 +368,12 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 			RequestFrame(ApplyMVPs, iClient);
 		}
 	}
+
+	// Award Winner XP
+	int iWinningClient = Murlisgib_GetWinner();
+
+	g_iClientXp[iWinningClient] += XP_ON_WIN;
+	PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the game.", XP_ON_WIN);
 }
 
 
