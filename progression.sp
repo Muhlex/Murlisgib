@@ -271,6 +271,12 @@ stock int GetRelativeXP(int iClient)
 
 stock int GetRelativeNeededXP(int iClient)
 {
+	// Check for max Rank
+	if (g_iClientRank[iClient] >= sizeof(g_iRankNeededXp) - 1)
+	{
+		return 0;
+	}
+
 	int iXPCurrentRank = g_iRankNeededXp[g_iClientRank[iClient]];
 	int iXPNextRank = g_iRankNeededXp[g_iClientRank[iClient] + 1];
 
@@ -281,7 +287,16 @@ stock int GetRelativeNeededXP(int iClient)
 
 stock float GetRelativeXPPercentage(int iClient)
 {
-	float fXPPercentage = float(GetRelativeXP(iClient)) / float(GetRelativeNeededXP(iClient));
+	float fXPRelative = float(GetRelativeXP(iClient));
+	float fXPRelativeNeeded = float(GetRelativeNeededXP(iClient));
+
+	// If no XP needed to next rank (usually max Rank)
+	if (fXPRelativeNeeded == 0)
+	{
+		return 1.0;
+	}
+
+	float fXPPercentage = fXPRelative / fXPRelativeNeeded;
 
 	return fXPPercentage;
 }
