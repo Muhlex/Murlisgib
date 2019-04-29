@@ -346,6 +346,7 @@ public void OnPluginStart()
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
 	RegConsoleCmd("xp", Command_ShowXP, "xp [#userid|name]");
+	RegConsoleCmd("rank", Command_ShowXP, "xp [#userid|name]");
 	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY, "setrank <rank> [#userid|name]");
 
 	ConnectDB();
@@ -560,8 +561,8 @@ public Action Command_ShowXP(int iClient, int iArgs)
 	}
 
 	// Output
-	ReplyToCommand(iTargetClient, " \x0BYour current Rank: \x0C%i", g_iClientRank[iTargetClient]);
-	ReplyToCommand(iTargetClient, " \x0B%iXP / %iXP  %s  \x0B[%.0f%%]", GetRelativeXP(iTargetClient), GetRelativeNeededXP(iTargetClient), szXPBar, fXPPercentage * 100);
+	ReplyToCommand(iClient, " \x0B%s current Rank: \x0C%i", szTargetName, g_iClientRank[iTargetClient]);
+	ReplyToCommand(iClient, " \x0B%iXP / %iXP  %s  \x0B[%.0f%%]", GetRelativeXP(iTargetClient), GetRelativeNeededXP(iTargetClient), szXPBar, fXPPercentage * 100);
 
 	return Plugin_Handled;
 }
@@ -648,7 +649,7 @@ public Action Command_SetRank (int iClient, int iArgs)
 	}
 
 	// Output
-	ReplyToCommand(iClient, " \x03Set \x0E%s \x03Rank to: \x0C%i \x0B[%i Total XP]", szTargetName, g_iClientRank[iTargetClient], g_iClientXp[iTargetClient]);
+	ReplyToCommand(iClient, " \x03You set \x0E%s \x03Rank to: \x0C%i \x0B[%i Total XP]", szTargetName, g_iClientRank[iTargetClient], g_iClientXp[iTargetClient]);
 
 	if (iTargetClient != iClient)
 	{
