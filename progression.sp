@@ -94,10 +94,10 @@ stock void ResetClient(int iClient, bool bResetXP = false)
 		}
 	}
 
-	g_iClientKills = 0;
-	g_iClientHeadshotKills = 0;
-	g_iClientKnifeKills = 0;
-	g_iClientShotgunKills = 0;
+	g_iClientKills[iClient] = 0;
+	g_iClientHeadshotKills[iClient] = 0;
+	g_iClientKnifeKills[iClient] = 0;
+	g_iClientShotgunKills[iClient] = 0;
 }
 
 stock void ConnectDB()
@@ -326,6 +326,7 @@ public void OnPluginStart()
 {
 	PrecacheSound(SOUND_RANK_UP);
 
+	HookEvent("round_start", Event_RoundStart);
 	HookEvent("player_death", Event_PlayerDeath);
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
@@ -385,6 +386,16 @@ public Action Timer_XpBase(Handle hTimer)
 	return Plugin_Continue;
 }
 
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
+{
+	// For each Client
+	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	{
+		// Reset Client Kill-Stats only
+		ResetClient(iClient, false);
+	}
+}
+
 public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	int  iVictim = GetClientOfUserId(GetEventInt(event, "userid"));
@@ -440,6 +451,7 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 {
 	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
 
+	// Custom MVP-Count will disappear on Spawn. This enforces it on every spawn
 	RequestFrame(ApplyMVPs, iClient);
 }
 
@@ -451,11 +463,12 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 		return;
 	}
 
-	// Overwrite MVP set by the game
+	// For each Client
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
 		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
 		{
+			// Overwrite MVP awarded by the Game on Round end
 			RequestFrame(ApplyMVPs, iClient);
 		}
 	}
@@ -464,11 +477,10 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 	int iWinningClient = Murlisgib_GetWinner();
 
 	g_iClientXp[iWinningClient] += XP_ON_WIN;
-	PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the game.", XP_ON_WIN);
+	PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
+
 
 	// TODO: Display XP After-Round Output
-
-	ResetClient(iClient, false);
 }
 
 
@@ -627,4 +639,6 @@ public Action Command_SetRank (int iClient, int iArgs)
 	{
 		PrintToChat(iTargetClient, " \x0E%s \x03set your Rank to: \x0C%i \x0B[%i Total XP]", szClientName, g_iClientRank[iTargetClient], g_iClientXp[iTargetClient]);
 	}
+
+	return Plugin_Handled;
 }
