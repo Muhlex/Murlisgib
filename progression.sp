@@ -38,6 +38,11 @@ int g_iRankNeededXp[] =
 int g_iClientXp[MAXPLAYERS + 1];
 int g_iClientRank[MAXPLAYERS + 1];
 
+int g_iClientKills[MAXPLAYERS + 1];
+int g_iClientHeadshotKills[MAXPLAYERS + 1];
+int g_iClientKnifeKills[MAXPLAYERS + 1];
+int g_iClientShotgunKills[MAXPLAYERS + 1];
+
 Handle g_hTimer_XpBase = INVALID_HANDLE;
 Database g_db;
 
@@ -73,6 +78,26 @@ stock void ApplyMVPs(int iClient)
 	{
 		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
 	}
+}
+
+stock void ResetClient(int iClient, bool bResetXP = false)
+{
+	if (bResetXP)
+	{
+		if (!IsFakeClient(iClient))
+		{
+			g_iClientRank[iClient] = 1;
+		}
+		else
+		{
+			g_iClientRank[iClient] = 0;
+		}
+	}
+
+	g_iClientKills = 0;
+	g_iClientHeadshotKills = 0;
+	g_iClientKnifeKills = 0;
+	g_iClientShotgunKills = 0;
 }
 
 stock void ConnectDB()
@@ -305,7 +330,6 @@ public void OnPluginStart()
 	HookEvent("player_spawn", Event_PlayerSpawn);
 
 	RegConsoleCmd("xp", Command_ShowXP, "xp [#userid|name]");
-	//RegAdminCmd("setxp", Command_SetXP, ADMFLAG_SLAY, "setxp <xp> [#userid|name]");
 	RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY, "setrank <rank> [#userid|name]");
 
 	ConnectDB();
@@ -319,11 +343,7 @@ public void OnPluginEnd()
 
 public void OnClientPostAdminCheck(int iClient)
 {
-	if (!IsFakeClient(iClient))
-	{
-		g_iClientRank[iClient] = 1;
-	}
-
+	ResetClient(iClient, true);
 	LoadXP(iClient);
 }
 
@@ -445,6 +465,10 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 
 	g_iClientXp[iWinningClient] += XP_ON_WIN;
 	PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the game.", XP_ON_WIN);
+
+	// TODO: Display XP After-Round Output
+
+	ResetClient(iClient, false);
 }
 
 
@@ -452,22 +476,19 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 // COMMAND FUNCTIONS
 // -----------------
 
-// RegConsoleCmd("xp", Command_ShowXP, "xp [#userid|name]");
-// RegAdminCmd("setxp", Command_SetXP, ADMFLAG_SLAY, "setxp <xp> [#userid|name]");
-// RegAdminCmd("setrank", Command_SetRank, ADMFLAG_SLAY, "setrank <rank> [#userid|name]");
-
 public Action Command_ShowXP(int iClient, int iArgs)
 {
-	// Specifies whose XP to show. Defaults to client calling the command
-	int iTargetClient = iClient;
-
 	// If command executed by server but no Arguments given
-	if ((iClient <= 0) && (iArgs <= 0))
+	if ((iClient <= 0) && (iArgs < 1))
 	{
 		ReplyToCommand(iClient, "Usage: xp <#userid|name>");
 		return Plugin_Handled;
 	}
 
+	// Specifies whose XP to show. Defaults to Client calling the Command
+	int iTargetClient = iClient;
+
+	// If a Client Name was given as an Argument
 	if (iArgs >= 1)
 	{
 		char szArg[65];
@@ -479,22 +500,23 @@ public Action Command_ShowXP(int iClient, int iArgs)
 
 		iTargetCount = ProcessTargetString(szArg, iClient, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, szTargetName, sizeof(szTargetName), bTargetIsML);
 
-		if (iTargetCount <= 0)
+		if (iTargetCount <= 0) // No matching client
 		{
 			ReplyToCommand(iClient, " \x0B No matching client found");
 			return Plugin_Handled;
 		}
-		else if (iTargetCount > 1)
+		else if (iTargetCount > 1) // Multiple matching clients
 		{
-			ReplyToCommand(iClient, " \x0B Multiple clients found, please try again");
+			ReplyToCommand(iClient, " \x0B Multiple clients found, please specify");
 			return Plugin_Handled;
 		}
-		else
+		else // One matching client -> Success
 		{
 			iTargetClient = iTargetList[0];
 		}
 	}
 
+	// Prepare Data for Output
 	float fXPPercentage = GetRelativeXPPercentage(iTargetClient);
 	char szXPBar[256];
 	szXPBar = GenerateProgressBar(fXPPercentage, 20, "\x0C", "\x0A");
@@ -510,6 +532,7 @@ public Action Command_ShowXP(int iClient, int iArgs)
 		StrCat(szTargetName, sizeof(szTargetName), "'s");
 	}
 
+	// Output
 	ReplyToCommand(iTargetClient, " \x0BYour current Rank: \x0C%i", g_iClientRank[iTargetClient]);
 	ReplyToCommand(iTargetClient, " \x0B%iXP / %iXP  %s  \x0B[%.0f%%]", GetRelativeXP(iTargetClient), GetRelativeNeededXP(iTargetClient), szXPBar, fXPPercentage * 100);
 
@@ -518,26 +541,90 @@ public Action Command_ShowXP(int iClient, int iArgs)
 
 public Action Command_SetRank (int iClient, int iArgs)
 {
-	char szArg[65];
-	GetCmdArg(1, szArg, sizeof(szArg));
-
-	int iArg;
-	iArg = StringToInt(szArg);
-
-	if (iClient < 1)
+	// If command executed by server but not enough Arguments given
+	if ((iClient <= 0) && (iArgs < 2))
 	{
-		return;
+		ReplyToCommand(iClient, "Usage: setrank <rank> <#userid|name>");
+		return Plugin_Handled;
 	}
 
-	if ((iArg < 1) || (iArg > sizeof(g_iRankNeededXp) - 1))
+	// If no Rank was given
+	if ((iArgs < 1))
 	{
-		PrintToChat(iClient, " \x0FYou did not enter a valid rank.");
-		return;
+		PrintToChat(iClient, " \x03Usage: setrank <rank> [#userid|name]");
+		return Plugin_Handled;
 	}
 
-	g_iClientXp[iClient] = g_iRankNeededXp[iArg];
-	g_iClientRank[iClient] = iArg;
-	ApplyMVPs(iClient);
+	// Get given Rank
+	char szArg1[65];
+	GetCmdArg(1, szArg1, sizeof(szArg1));
 
-	PrintToChat(iClient, " \x0FRank set to: %i \x10[%i XP]", g_iClientRank[iClient], g_iClientXp[iClient]);
+	int iArg1;
+	iArg1 = StringToInt(szArg1); // Failure returns 0
+
+	// If invalid Rank was given
+	if ((iArg1 < 1) || (iArg1 > sizeof(g_iRankNeededXp) - 1))
+	{
+		PrintToChat(iClient, " \x03Invalid Rank given");
+		return Plugin_Handled;
+	}
+
+	// Specifies whose Rank to set. Defaults to Client calling the Command
+	int iTargetClient = iClient;
+
+	// If a Client Name was given as an Argument
+	if (iArgs >= 2)
+	{
+		char szArg2[65];
+		GetCmdArg(2, szArg2, sizeof(szArg2));
+
+		char szTargetName[MAX_TARGET_LENGTH];
+		int iTargetList[MAXPLAYERS], iTargetCount;
+		bool bTargetIsML;
+
+		iTargetCount = ProcessTargetString(szArg2, iClient, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, szTargetName, sizeof(szTargetName), bTargetIsML);
+
+		if (iTargetCount <= 0) // No matching client
+		{
+			ReplyToCommand(iClient, " \x03 No matching client found");
+			return Plugin_Handled;
+		}
+		else if (iTargetCount > 1) // Multiple matching clients
+		{
+			ReplyToCommand(iClient, " \x03 Multiple clients found, please specify");
+			return Plugin_Handled;
+		}
+		else // One matching client -> Success
+		{
+			iTargetClient = iTargetList[0];
+		}
+	}
+
+	// Action
+	g_iClientXp[iTargetClient] = g_iRankNeededXp[iArg1];
+	g_iClientRank[iTargetClient] = iArg1;
+	ApplyMVPs(iTargetClient);
+
+	// Prepare Data for Output
+	char szClientName[35];
+	GetClientName(iClient, szClientName, sizeof(szClientName));
+
+	char szTargetName[35];
+	if (iTargetClient == iClient)
+	{
+		szTargetName = "your";
+	}
+	else
+	{
+		GetClientName(iTargetClient, szTargetName, sizeof(szTargetName));
+		StrCat(szTargetName, sizeof(szTargetName), "'s");
+	}
+
+	// Output
+	ReplyToCommand(iClient, " \x03Set \x0E%s \x03Rank to: \x0C%i \x0B[%i Total XP]", szTargetName, g_iClientRank[iTargetClient], g_iClientXp[iTargetClient]);
+
+	if (iTargetClient != iClient)
+	{
+		PrintToChat(iTargetClient, " \x0E%s \x03set your Rank to: \x0C%i \x0B[%i Total XP]", szClientName, g_iClientRank[iTargetClient], g_iClientXp[iTargetClient]);
+	}
 }
