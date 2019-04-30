@@ -6,7 +6,7 @@
 #include <cstrike>
 
 #define SOUND_RANK_UP "ui/panorama/gameover_newskillgroup_01.wav"
-#define SOUND_RANK_UP_VOL 0.7
+#define SOUND_RANK_UP_VOL 0.4
 
 #define XP_BASE_RATE 5
 #define XP_ON_KILL 10
@@ -35,15 +35,16 @@ int g_iRankNeededXp[] =
 	176000, 178000, 180000, 182000, 184000, 186000, 188000, 190000, 192000, 194000
 };
 
-int g_iClientXp[MAXPLAYERS + 1];
-int g_iClientRank[MAXPLAYERS + 1];
+int   g_iClientXp[MAXPLAYERS + 1];
+int   g_iClientRank[MAXPLAYERS + 1];
 
-int g_iClientKills[MAXPLAYERS + 1];
-int g_iClientHeadshotKills[MAXPLAYERS + 1];
-int g_iClientKnifeKills[MAXPLAYERS + 1];
-int g_iClientShotgunKills[MAXPLAYERS + 1];
+float g_fClientPlaytimeTimestamp[MAXPLAYERS + 1];
+int   g_iClientOtherKills[MAXPLAYERS + 1];
+int   g_iClientHeadshotKills[MAXPLAYERS + 1];
+int   g_iClientKnifeKills[MAXPLAYERS + 1];
+int   g_iClientShotgunKills[MAXPLAYERS + 1];
 
-Handle g_hTimer_XpBase = INVALID_HANDLE;
+Handle g_hTimer_XPBase = INVALID_HANDLE;
 Database g_db;
 
 
@@ -94,10 +95,51 @@ stock void ResetClient(int iClient, bool bResetXP = false)
 		}
 	}
 
-	g_iClientKills[iClient] = 0;
+	g_fClientPlaytimeTimestamp[iClient] = GetGameTime();
+	g_iClientOtherKills[iClient] = 0;
 	g_iClientHeadshotKills[iClient] = 0;
 	g_iClientKnifeKills[iClient] = 0;
 	g_iClientShotgunKills[iClient] = 0;
+}
+
+stock void PrintXPReport(int iClient)
+{
+	DataPack dpClientInfo;
+
+	// TODO: Get Afterroundtime as set by instagib plugin
+	CreateDataTimer(0.0, Timer_PrintXPReport, dpClientInfo);
+
+	float fClientPlaytime = GetGameTime() - g_fClientPlaytimeTimestamp[iClient];
+
+	dpClientInfo.WriteCell(GetClientUserId(iClient));
+	dpClientInfo.WriteFloat(fClientPlaytime);
+	dpClientInfo.WriteCell(g_iClientOtherKills[iClient]);
+	dpClientInfo.WriteCell(g_iClientHeadshotKills[iClient]);
+	dpClientInfo.WriteCell(g_iClientKnifeKills[iClient]);
+	dpClientInfo.WriteCell(g_iClientShotgunKills[iClient]);
+}
+
+public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
+{
+	int iClient, iClientOtherKills, iClientHeadshotKills, iClientKnifeKills, iClientShotgunKills;
+	float fClientPlaytime;
+
+	dpClientInfo.Reset();
+	iClient = GetClientOfUserId(dpClientInfo.ReadCell());
+	fClientPlaytime = dpClientInfo.ReadFloat();
+	iClientOtherKills = dpClientInfo.ReadCell();
+	iClientHeadshotKills = dpClientInfo.ReadCell();
+	iClientKnifeKills = dpClientInfo.ReadCell();
+	iClientShotgunKills = dpClientInfo.ReadCell();
+
+	// If client disconnected
+	if (iClient == 0)
+	{
+		return;
+	}
+
+	PrintToChat(iClient, "Playtime: %.0f, Kills: %i, Header: %i, Schneiden: %i, Shotgun: %i",
+	fClientPlaytime, iClientOtherKills, iClientHeadshotKills, iClientKnifeKills, iClientShotgunKills);
 }
 
 stock void ConnectDB()
@@ -249,7 +291,8 @@ stock int UpdateRank(int iClient, bool bAnnounce = false)
 
 			if (bAnnounce)
 			{
-				PrintToChat(iClient, " \x0FYou have reached Rank: %i \x10[%i XP]", i, g_iRankNeededXp[i]);
+				PrintToChat(iClient, " \x0A--- \x0CCongratulations! \x0A---");
+				PrintToChat(iClient, " \x0BYou reached a new Rank: \x0C%i", i);
 				PlayClientSound(iClient, SOUND_RANK_UP, SOUND_RANK_UP_VOL);
 			}
 		}
@@ -366,15 +409,15 @@ public void OnClientPostAdminCheck(int iClient)
 
 public void OnMapStart()
 {
-	g_hTimer_XpBase = CreateTimer(10.0, Timer_XpBase, _, TIMER_REPEAT);
+	g_hTimer_XPBase = CreateTimer(10.0, Timer_XPBase, _, TIMER_REPEAT);
 }
 
 public void OnMapEnd()
 {
-	if (g_hTimer_XpBase != INVALID_HANDLE)
+	if (g_hTimer_XPBase != INVALID_HANDLE)
 	{
-		KillTimer(g_hTimer_XpBase, false);
-		g_hTimer_XpBase = INVALID_HANDLE;
+		KillTimer(g_hTimer_XPBase, false);
+		g_hTimer_XPBase = INVALID_HANDLE;
 	}
 
 	SaveXPAll();
@@ -385,7 +428,7 @@ public void OnClientDisconnect(int iClient)
 	SaveXP(iClient);
 }
 
-public Action Timer_XpBase(Handle hTimer)
+public Action Timer_XPBase(Handle hTimer)
 {
 	for (int iClient = 1; iClient <= MaxClients ; iClient++)
 	{
@@ -409,6 +452,36 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 	{
 		// Reset Client Kill-Stats only
 		ResetClient(iClient, false);
+	}
+}
+
+public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
+{
+	// Cancel if warmup ended instead of an actual round
+	if (reason == CSRoundEnd_GameStart)
+	{
+		return;
+	}
+
+	// Award Winner XP
+	int iWinningClient = Murlisgib_GetWinner();
+
+	if (iWinningClient > 0)
+	{
+		g_iClientXp[iWinningClient] += XP_ON_WIN;
+		PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
+	}
+
+	// For each Client
+	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	{
+		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
+		{
+			// Overwrite MVP awarded by the Game on Round end
+			RequestFrame(ApplyMVPs, iClient);
+			// Display XP Report
+			PrintXPReport(iClient);
+		}
 	}
 }
 
@@ -442,21 +515,25 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	if (StrEqual(szWeapon, "weapon_mag7"))
 	{
 		g_iClientXp[iAttacker] += XP_ON_SHOTGUN;
+		g_iClientShotgunKills[iAttacker]++;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Shotgun Kill.", XP_ON_SHOTGUN);
 	}
 	else if (bHeadshot && StrEqual(szWeapon, "weapon_hkp2000"))
 	{
 		g_iClientXp[iAttacker] += XP_ON_HEADSHOT;
+		g_iClientHeadshotKills[iAttacker]++;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Railgun-Headshot Kill.", XP_ON_HEADSHOT);
 	}
 	else if (StrEqual(szWeapon, "weapon_knife"))
 	{
 		g_iClientXp[iAttacker] += XP_ON_KNIFE;
+		g_iClientKnifeKills[iAttacker]++;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Knife Kill.", XP_ON_KNIFE);
 	}
 	else
 	{
 		g_iClientXp[iAttacker] += XP_ON_KILL;
+		g_iClientOtherKills[iAttacker]++;
 		PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
 	}
 
@@ -469,34 +546,6 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 
 	// Custom MVP-Count will disappear on Spawn. This enforces it on every spawn
 	RequestFrame(ApplyMVPs, iClient);
-}
-
-public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
-{
-	// Cancel if warmup ended instead of an actual round
-	if (reason == CSRoundEnd_GameStart)
-	{
-		return;
-	}
-
-	// For each Client
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
-	{
-		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
-		{
-			// Overwrite MVP awarded by the Game on Round end
-			RequestFrame(ApplyMVPs, iClient);
-		}
-	}
-
-	// Award Winner XP
-	int iWinningClient = Murlisgib_GetWinner();
-
-	g_iClientXp[iWinningClient] += XP_ON_WIN;
-	PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
-
-
-	// TODO: Display XP After-Round Output
 }
 
 
