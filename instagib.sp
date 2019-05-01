@@ -61,12 +61,18 @@ float gl_statDelay 																= 0.0;
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] szError, int iErrorMaxLength)
 {
 	CreateNative("Murlisgib_GetWinner", Native_GetWinner);
+	CreateNative("Murlisgib_GetStatDelay", Native_GetStatDelay);
 	return APLRes_Success;
 }
 
 public int Native_GetWinner(Handle hPlugin, int iNumParams)
 {
 	return gl_winningPlayer;
+}
+
+public int Native_GetStatDelay(Handle hPlugin, int iNumParams)
+{
+	return view_as<int>(gl_statDelay);
 }
 
 public void OnPluginStart()
