@@ -63,6 +63,7 @@ public Plugin myinfo =
 // NATIVE FUNCTIONS
 // ----------------
 native int Murlisgib_GetWinner();
+native int Murlisgib_GetStatDelay();
 
 
 // STOCK FUNCTIONS
@@ -106,8 +107,10 @@ stock void PrintXPReport(int iClient)
 {
 	DataPack dpClientInfo;
 
-	// TODO: Get Afterroundtime as set by instagib plugin
-	CreateDataTimer(0.0, Timer_PrintXPReport, dpClientInfo);
+	// Get round_restart_delay as set by Instagib Plugin
+	float fStatDelay = view_as<float>(Murlisgib_GetStatDelay());
+
+	CreateDataTimer(fStatDelay, Timer_PrintXPReport, dpClientInfo);
 
 	float fClientPlaytime = GetGameTime() - g_fClientPlaytimeTimestamp[iClient];
 
