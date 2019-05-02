@@ -198,7 +198,7 @@ stock void LoadXP(int iClient)
 		if (GetClientAuthId(iClient, AuthId_Engine, szSteamId, sizeof(szSteamId), true))
 		{
 			Format(szQuery, sizeof(szQuery), "SELECT xp FROM player WHERE steam_id='%s' LIMIT 1;", szSteamId);
-			SQL_TQuery(g_db, Callback_LoadXP, szQuery, iClient);
+			SQL_TQuery(g_db, Callback_LoadXP, szQuery, GetClientUserId(iClient));
 		}
 		else
 		{
@@ -207,8 +207,10 @@ stock void LoadXP(int iClient)
 	}
 }
 
-stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, any iClient)
+stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, any iUser)
 {
+	int iClient = GetClientOfUserId(iUser);
+
 	if (hQuery == INVALID_HANDLE)
 	{
 		ThrowError("Error retrieving Client %i XP: %s", iClient, szError);
@@ -223,15 +225,19 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 		iClientXP = SQL_FetchInt(hQuery, 0);
 	}
 
-	// If result found in database
-	if (iClientXP < 0)
+	// Check if same client is still in-game
+	if (IsClientConnected(iClient))
 	{
-		AddPlayerDB(iClient);
-	}
-	else
-	{
-		g_iClientXp[iClient] = iClientXP;
-		UpdateRank(iClient);
+		// If result found in database
+		if (iClientXP < 0)
+		{
+			AddPlayerDB(iClient);
+		}
+		else
+		{
+			g_iClientXp[iClient] = iClientXP;
+			UpdateRank(iClient);
+		}
 	}
 }
 
@@ -406,7 +412,6 @@ public void OnPluginEnd()
 
 public void OnClientPostAdminCheck(int iClient)
 {
-	ResetClient(iClient, true);
 	LoadXP(iClient);
 }
 
@@ -428,7 +433,12 @@ public void OnMapEnd()
 
 public void OnClientDisconnect(int iClient)
 {
-	SaveXP(iClient);
+	// Prevent saving empty data
+	if (g_iClientXp[iClient] > 0)
+	{
+		SaveXP(iClient);
+	}
+	ResetClient(iClient, true);
 }
 
 public Action Timer_XPBase(Handle hTimer)
