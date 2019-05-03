@@ -226,7 +226,7 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 	}
 
 	// Check if same client is still in-game
-	if (IsClientConnected(iClient))
+	if ((iClient == 0) || (IsClientConnected(iClient)))
 	{
 		// If result found in database
 		if (iClientXP < 0)
