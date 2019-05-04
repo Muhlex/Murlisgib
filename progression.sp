@@ -76,7 +76,7 @@ stock void PlayClientSound(int iClient, char[] sound, float volume)
 
 stock void ApplyMVPs(int iClient)
 {
-	if ((iClient >= 0) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
+	if ((iClient >= 1) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
 	{
 		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
 	}
@@ -226,7 +226,7 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 	}
 
 	// Check if same client is still in-game
-	if ((iClient >= 0) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
+	if ((iClient >= 1) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
 	{
 		// If result found in database
 		if (iClientXP < 0)
@@ -291,7 +291,7 @@ stock int UpdateRank(int iClient, bool bAnnounce = false)
 	}
 
 	// Loop through XP <-> Rank Definitions
-	for (int i = g_iClientRank[iClient] + 1; i <= sizeof(g_iRankNeededXp) - 1; i++)
+	for (int i = g_iClientRank[iClient] + 1; i <= sizeof(g_iRankNeededXp) - 1; i++) // Start at next rank, stop at last rank
 	{
 		if (g_iClientXp[iClient] >= g_iRankNeededXp[i])
 		{
@@ -300,7 +300,7 @@ stock int UpdateRank(int iClient, bool bAnnounce = false)
 
 			if (bAnnounce)
 			{
-				PrintToChat(iClient, " \x0A--- \x0CCongratulations! \x0A---");
+				PrintToChat(iClient, " \x0A⸻ \x0CCongratulations! \x0A⸻");
 				PrintToChat(iClient, " \x0BYou reached a new Rank: \x0C%i", i);
 				PlayClientSound(iClient, SOUND_RANK_UP, SOUND_RANK_UP_VOL);
 			}
