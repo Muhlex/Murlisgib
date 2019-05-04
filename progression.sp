@@ -76,7 +76,7 @@ stock void PlayClientSound(int iClient, char[] sound, float volume)
 
 stock void ApplyMVPs(int iClient)
 {
-	if (IsClientInGame(iClient))
+	if ((iClient >= 0) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
 	{
 		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
 	}
@@ -226,7 +226,7 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 	}
 
 	// Check if same client is still in-game
-	if ((iClient == 0) || (IsClientConnected(iClient)))
+	if ((iClient >= 0) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
 	{
 		// If result found in database
 		if (iClientXP < 0)
