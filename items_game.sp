@@ -9,7 +9,7 @@
 KeyValues g_kv;
 bool g_restart = false;
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
 	name = "Murlisgib Weapon Stats",
 	author = "murlis",
@@ -66,7 +66,7 @@ stock bool CheckItemsGameReady()
 
 	if (!g_kv.JumpToKey("murlisgib"))
 		return false;
-	
+
 	if(!g_kv.GetNum("modified"))
 		return false;
 
@@ -97,7 +97,7 @@ stock void UpdateItemsGame()
 
 	ModifyWeaponStat("weapon_usp_silencer",		"has silencer",											"0");
 	ModifyWeaponStat("weapon_usp_silencer",		"damage",														"1000");
-	ModifyWeaponStat("weapon_usp_silencer",		"cycletime",												"1.100000"); // previously 1.2
+	ModifyWeaponStat("weapon_usp_silencer",		"cycletime",												"0.800000"); // previously 1.1
 	ModifyWeaponStat("weapon_usp_silencer",		"range modifier",										"1.000000");
 	ModifyWeaponStat("weapon_usp_silencer",		"range",														"8192");
 	ModifyWeaponStat("weapon_usp_silencer",		"penetration",											"10");
@@ -117,7 +117,7 @@ stock bool SaveItemsGame(bool state = true)
 
 	if (!g_kv.JumpToKey("murlisgib", true))
 		return false;
-	
+
 	g_kv.SetNum("modified", state);
 	g_kv.Rewind();
 
@@ -143,7 +143,7 @@ stock bool ModifyWeaponStat(char[] weapon, char[] stat, char[] value)
 
 	if (!g_kv.JumpToKey("attributes"))
 		return false;
-	
+
 	g_kv.SetString(stat, value);
 	g_kv.Rewind();
 

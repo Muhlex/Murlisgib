@@ -459,8 +459,8 @@ public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcas
 
 	if (StrEqual(weaponName, "weapon_usp_silencer"))
 	{
-		// USP Cycle-Time is 1.1secs
-		CreateTimer(0.9, ReloadUsp, weapon_index);
+		// Use USP Cycle-Time -0.2sec!
+		CreateTimer(0.6, ReloadUsp, weapon_index);
 	}
 }
 
