@@ -71,8 +71,6 @@ stock void StartSpawningTimer(float fInterval, float fIntervalPerPlayer, float f
 		fMinInterval = 0.0;
 	}
 
-	PrintToChatAll("interval: %.1f intervalplayer: %.1f intervaloffset: %.1f clients: %i mininterval: %.1f maxinterval: %.1f",
-	fInterval, fIntervalPerPlayer, fIntervalOffset, iNumClients, fMinInterval, fMaxInterval);
 	g_hTimer_Spawning = CreateTimer(GetRandomFloat(fMinInterval, fMaxInterval), Timer_Spawning);
 }
 
@@ -105,8 +103,6 @@ public Action Timer_Spawning(Handle timer)
 	{
 		iMaxBumpmines = 0;
 	}
-
-	PrintToChatAll("Current old Bump mines: %i; max bumpmines: %i", iNumOldBumpmines, iMaxBumpmines);
 
 	if (iNumOldBumpmines >= iMaxBumpmines)
 	{
@@ -147,8 +143,6 @@ public Action Timer_Spawning(Handle timer)
 
 	// Remove the used Spawnpoint Position from Array
 	RemoveFromArray(g_adtSpawnpointPos, iSpawnpointIndex);
-
-	PrintToChatAll("Spawned one");
 }
 
 
