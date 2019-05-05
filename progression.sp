@@ -45,6 +45,7 @@ int   g_iClientKnifeKills[MAXPLAYERS + 1];
 int   g_iClientShotgunKills[MAXPLAYERS + 1];
 int   g_iWinningClient;
 
+ConVar g_cvXPNotifications;
 Handle g_hTimer_XPBase = INVALID_HANDLE;
 Database g_db;
 
@@ -425,6 +426,8 @@ public void OnPluginStart()
 {
 	PrecacheSound(SOUND_RANK_UP);
 
+	g_cvXPNotifications = CreateConVar("xp_notifications", "0", "Whether to show notifications in chat for every XP-awarding event.");
+
 	HookEvent("round_start", Event_RoundStart);
 	HookEvent("player_death", Event_PlayerDeath);
 	HookEvent("player_spawn", Event_PlayerSpawn);
@@ -480,7 +483,11 @@ public Action Timer_XPBase(Handle hTimer)
 		if (IsClientInGame(iClient) && !IsFakeClient(iClient) && GetClientTeam(iClient) > 1)
 		{
 			g_iClientXp[iClient] += XP_BASE_RATE;
-			PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
+
+			if (g_cvXPNotifications.BoolValue)
+			{
+				PrintToChat(iClient, " \x0DAwarded %iXP for playing.", XP_BASE_RATE);
+			}
 
 			UpdateRank(iClient, true);
 		}
@@ -514,7 +521,11 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 	if (g_iWinningClient > 0)
 	{
 		g_iClientXp[g_iWinningClient] += XP_ON_WIN;
-		PrintToChat(g_iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
+
+		if (g_cvXPNotifications.BoolValue)
+		{
+			PrintToChat(g_iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
+		}
 	}
 
 	// For each Client
@@ -561,25 +572,41 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	{
 		g_iClientXp[iAttacker] += XP_ON_SHOTGUN;
 		g_iClientShotgunKills[iAttacker]++;
-		PrintToChat(iAttacker, " \x0DAwarded %iXP for Shotgun Kill.", XP_ON_SHOTGUN);
+
+		if (g_cvXPNotifications.BoolValue)
+		{
+			PrintToChat(iAttacker, " \x0DAwarded %iXP for Shotgun Kill.", XP_ON_SHOTGUN);
+		}
 	}
 	else if (bHeadshot && StrEqual(szWeapon, "weapon_hkp2000"))
 	{
 		g_iClientXp[iAttacker] += XP_ON_HEADSHOT;
 		g_iClientHeadshotKills[iAttacker]++;
-		PrintToChat(iAttacker, " \x0DAwarded %iXP for Railgun-Headshot Kill.", XP_ON_HEADSHOT);
+
+		if (g_cvXPNotifications.BoolValue)
+		{
+			PrintToChat(iAttacker, " \x0DAwarded %iXP for Railgun-Headshot Kill.", XP_ON_HEADSHOT);
+		}
 	}
 	else if (StrEqual(szWeapon, "weapon_knife"))
 	{
 		g_iClientXp[iAttacker] += XP_ON_KNIFE;
 		g_iClientKnifeKills[iAttacker]++;
-		PrintToChat(iAttacker, " \x0DAwarded %iXP for Knife Kill.", XP_ON_KNIFE);
+
+		if (g_cvXPNotifications.BoolValue)
+		{
+			PrintToChat(iAttacker, " \x0DAwarded %iXP for Knife Kill.", XP_ON_KNIFE);
+		}
 	}
 	else
 	{
 		g_iClientXp[iAttacker] += XP_ON_KILL;
 		g_iClientOtherKills[iAttacker]++;
-		PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
+
+		if (g_cvXPNotifications.BoolValue)
+		{
+			PrintToChat(iAttacker, " \x0DAwarded %iXP for Kill.", XP_ON_KILL);
+		}
 	}
 
 	UpdateRank(iAttacker, true);
@@ -673,7 +700,7 @@ public Action Command_SetRank (int iClient, int iArgs)
 	// If no Rank was given
 	if ((iArgs < 1))
 	{
-		PrintToChat(iClient, " \x03Usage: setrank <rank> [#userid|name]");
+		ReplyToCommand(iClient, " \x03Usage: setrank <rank> [#userid|name]");
 		return Plugin_Handled;
 	}
 
@@ -687,7 +714,7 @@ public Action Command_SetRank (int iClient, int iArgs)
 	// If invalid Rank was given
 	if ((iArg1 < 1) || (iArg1 > sizeof(g_iRankNeededXp) - 1))
 	{
-		PrintToChat(iClient, " \x03Invalid Rank given");
+		ReplyToCommand(iClient, " \x03Invalid Rank given");
 		return Plugin_Handled;
 	}
 
