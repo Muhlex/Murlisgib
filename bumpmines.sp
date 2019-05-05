@@ -175,7 +175,6 @@ public void OnPluginStart()
 	g_cvTime           = CreateConVar("bumpmines_time", "18", "Interval (in seconds), in which a Bump Mine is spawned.");
 	g_cvTimePerPlayer  = CreateConVar("bumpmines_time_per_player", "-1.2", "Value to increase/decrease Bump Mine spawning timer per connected player.");
 	g_cvTimeOffset     = CreateConVar("bumpmines_time_offset", "3", "Maximum amount by which to randomly offset Bump Mine spawning timer (positively AND negatively).");
-	g_cvDropOnDeath    = CreateConVar("bumpmines_drop_on_death", "1", "Whether players drop picked-up Bump Mines on death, even with mp_death_drop_gun disabled.");
 
 	g_cvEnabled.AddChangeHook(ConVar_Change_BumpMines);
 	g_cvTime.AddChangeHook(ConVar_Change_BumpMines);
