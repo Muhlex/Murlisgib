@@ -43,6 +43,7 @@ int   g_iClientOtherKills[MAXPLAYERS + 1];
 int   g_iClientHeadshotKills[MAXPLAYERS + 1];
 int   g_iClientKnifeKills[MAXPLAYERS + 1];
 int   g_iClientShotgunKills[MAXPLAYERS + 1];
+int   g_iWinningClient;
 
 Handle g_hTimer_XPBase = INVALID_HANDLE;
 Database g_db;
@@ -135,14 +136,45 @@ public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
 	iClientKnifeKills = dpClientInfo.ReadCell();
 	iClientShotgunKills = dpClientInfo.ReadCell();
 
-	// If client disconnected
+	// Return if client disconnected
 	if (iClient == 0)
 	{
 		return;
 	}
 
-	PrintToChat(iClient, "Playtime: %.0f, Kills: %i, Header: %i, Schneiden: %i, Shotgun: %i",
-	fClientPlaytime, iClientOtherKills, iClientHeadshotKills, iClientKnifeKills, iClientShotgunKills);
+	char szWinner[24], szTimePlayed[8];
+	int iTimePlayedXP;
+	int iHeadshotKillsXP, iKnifeKillsXP, iShotgunKillsXP, iOtherKillsXP;
+	int iTotalXP;
+
+	if (g_iWinningClient == iClient)
+	{
+		Format(szWinner, sizeof(szWinner), " \x0A| Winner \x0B[+%iXP]", XP_ON_WIN);
+	}
+
+	FormatTime(szTimePlayed, sizeof(szTimePlayed), "%M:%S", RoundToCeil(fClientPlaytime));
+
+	iTimePlayedXP = RoundToCeil(fClientPlaytime) / 10 * XP_BASE_RATE;
+
+	iHeadshotKillsXP = iClientHeadshotKills * XP_ON_HEADSHOT;
+	iKnifeKillsXP    = iClientKnifeKills * XP_ON_KNIFE;
+	iShotgunKillsXP  = iClientShotgunKills * XP_ON_SHOTGUN;
+	iOtherKillsXP    = iClientOtherKills * XP_ON_KILL;
+
+	iTotalXP = iTimePlayedXP + iHeadshotKillsXP + iKnifeKillsXP + iShotgunKillsXP + iOtherKillsXP;
+
+	float fXPPercentage = GetRelativeXPPercentage(iClient);
+	char szXPBar[256];
+	szXPBar = GenerateProgressBar(fXPPercentage, 20, "\x0C", "\x0A");
+
+	PrintToChat(iClient, " \x0A⸻ \x0CXP Breakdown \x0A⸻");
+	PrintToChat(iClient, " \x0ATime Played \x0C(%s) \x0B[+%iXP]%s", szTimePlayed, iTimePlayedXP, szWinner);
+	PrintToChat(iClient, " \x0ARailgun-Headshot Kills \x0C(%i) \x0B[+%iXP] \x0A| Knife Kills \x0C(%i) \x0B[+%iXP]",
+	iClientHeadshotKills, iHeadshotKillsXP, iClientKnifeKills, iKnifeKillsXP);
+	PrintToChat(iClient, " \x0AShotgun Kills \x0C(%i) \x0B[+%iXP] \x0A| Other Kills \x0C(%i) \x0B[+%iXP]",
+	iClientShotgunKills, iShotgunKillsXP, iClientOtherKills, iOtherKillsXP);
+	PrintToChat(iClient, " \x0CTOTAL EARNED: \x0B%iXP", iTotalXP);
+	PrintToChat(iClient, " \x0B%iXP / %iXP  %s  \x0B[%.0f%%]", GetRelativeXP(iClient), GetRelativeNeededXP(iClient), szXPBar, fXPPercentage * 100);
 }
 
 stock void ConnectDB()
@@ -477,12 +509,12 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 	}
 
 	// Award Winner XP
-	int iWinningClient = Murlisgib_GetWinner();
+	g_iWinningClient = Murlisgib_GetWinner();
 
-	if (iWinningClient > 0)
+	if (g_iWinningClient > 0)
 	{
-		g_iClientXp[iWinningClient] += XP_ON_WIN;
-		PrintToChat(iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
+		g_iClientXp[g_iWinningClient] += XP_ON_WIN;
+		PrintToChat(g_iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
 	}
 
 	// For each Client
