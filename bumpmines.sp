@@ -90,6 +90,7 @@ stock void KillSpawningTimer()
 
 public Action Timer_Spawning(Handle timer)
 {
+	// Start next instance of the Timer
 	StartSpawningTimer(g_cvTime.FloatValue, g_cvTimePerPlayer.FloatValue, g_cvTimeOffset.FloatValue, true);
 
 	int iOldBumpmine = -1; // Start searching at the very first entity
@@ -117,11 +118,17 @@ public Action Timer_Spawning(Handle timer)
 	// Get saved Positions to be used for spawning Bump Mines
 	int iNumSpawnpoints = GetArraySize(g_adtSpawnpointPos);
 
-	// If no Positions are found or all have been used up, new ones will be generated.
+	// If all Positions have been used up, new ones will be generated.
 	if (iNumSpawnpoints <= 0)
 	{
 		GetSpawnPositions();
 		iNumSpawnpoints = GetArraySize(g_adtSpawnpointPos);
+	}
+
+	// If there are still no Spawnpoints, do not spawn mines.
+	if (iNumSpawnpoints <= 0)
+	{
+		return;
 	}
 
 	// Get random Spawnpoint index
@@ -168,6 +175,7 @@ public void OnPluginStart()
 	g_cvTime           = CreateConVar("bumpmines_time", "18", "Interval (in seconds), in which a Bump Mine is spawned.");
 	g_cvTimePerPlayer  = CreateConVar("bumpmines_time_per_player", "-1.2", "Value to increase/decrease Bump Mine spawning timer per connected player.");
 	g_cvTimeOffset     = CreateConVar("bumpmines_time_offset", "3", "Maximum amount by which to randomly offset Bump Mine spawning timer (positively AND negatively).");
+	g_cvDropOnDeath    = CreateConVar("bumpmines_drop_on_death", "1", "Whether players drop picked-up Bump Mines on death, even with mp_death_drop_gun disabled.");
 
 	g_cvEnabled.AddChangeHook(ConVar_Change_BumpMines);
 	g_cvTime.AddChangeHook(ConVar_Change_BumpMines);
