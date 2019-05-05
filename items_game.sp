@@ -97,7 +97,7 @@ stock void UpdateItemsGame()
 
 	ModifyWeaponStat("weapon_usp_silencer",		"has silencer",											"0");
 	ModifyWeaponStat("weapon_usp_silencer",		"damage",														"1000");
-	ModifyWeaponStat("weapon_usp_silencer",		"cycletime",												"0.800000"); // previously 1.1
+	ModifyWeaponStat("weapon_usp_silencer",		"cycletime",												"0.900000"); // previously 1.1
 	ModifyWeaponStat("weapon_usp_silencer",		"range modifier",										"1.000000");
 	ModifyWeaponStat("weapon_usp_silencer",		"range",														"8192");
 	ModifyWeaponStat("weapon_usp_silencer",		"penetration",											"10");
