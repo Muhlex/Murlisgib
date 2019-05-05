@@ -144,13 +144,14 @@ public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
 	}
 
 	char szWinner[24], szTimePlayed[8];
-	int iTimePlayedXP;
+	int iTimePlayedXP, iWinnerXP;
 	int iHeadshotKillsXP, iKnifeKillsXP, iShotgunKillsXP, iOtherKillsXP;
 	int iTotalXP;
 
 	if (g_iWinningClient == iClient)
 	{
-		Format(szWinner, sizeof(szWinner), " \x0A| Winner \x0B[+%iXP]", XP_ON_WIN);
+		iWinnerXP = XP_ON_WIN;
+		Format(szWinner, sizeof(szWinner), " \x0A| Winner \x0B[+%iXP]", iWinnerXP);
 	}
 
 	FormatTime(szTimePlayed, sizeof(szTimePlayed), "%M:%S", RoundToCeil(fClientPlaytime));
@@ -162,7 +163,7 @@ public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
 	iShotgunKillsXP  = iClientShotgunKills * XP_ON_SHOTGUN;
 	iOtherKillsXP    = iClientOtherKills * XP_ON_KILL;
 
-	iTotalXP = iTimePlayedXP + iHeadshotKillsXP + iKnifeKillsXP + iShotgunKillsXP + iOtherKillsXP;
+	iTotalXP = iTimePlayedXP + iWinnerXP + iHeadshotKillsXP + iKnifeKillsXP + iShotgunKillsXP + iOtherKillsXP;
 
 	float fXPPercentage = GetRelativeXPPercentage(iClient);
 	char szXPBar[256];
