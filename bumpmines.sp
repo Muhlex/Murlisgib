@@ -66,9 +66,9 @@ stock void StartSpawningTimer(float fInterval, float fIntervalPerPlayer, float f
 	float fMinInterval = fInterval - fIntervalOffset;
 	float fMaxInterval = fInterval + fIntervalOffset;
 
-	if (fMinInterval < 0.0)
+	if (fMinInterval < 1.0)
 	{
-		fMinInterval = 0.0;
+		fMinInterval = 1.0;
 	}
 
 	g_hTimer_Spawning = CreateTimer(GetRandomFloat(fMinInterval, fMaxInterval), Timer_Spawning);
