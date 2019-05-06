@@ -58,6 +58,10 @@ float	 gl_vPlayerWeaponJumpVelocity[MAXPLAYERS + 1][3];
 /* Weapon properties stringmap											   */
 StringMap gl_hMapWeaponProperties;
 
+int gl_player_jumping[MAXPLAYERS + 1] = {INVALID_ENT_REFERENCE, ...};
+
+bool gl_player_just_jumped[MAXPLAYERS + 1] = false;
+
 /* ------------------------------------------------------------------------- */
 
 /* Plugin enable cvar														*/
@@ -76,9 +80,11 @@ bool	  gl_bPluginEnable;
 
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] szError, int iErrorMaxLength)
 {
+	CreateNative("Murlisgib_IsClientBlastJumping", Native_IsClientBlastJumping);
+
 	// Save the plugin late status
 	gl_bPluginLate = bLate;
-	
+
 	// Continue
 	return APLRes_Success;
 }
@@ -87,19 +93,33 @@ public void OnPluginStart()
 {
 	// Check the engine version
 	PluginCheckEngineVersion();
-	
+
 	// Initialize the cvars
 	CvarInitialize();
 
 	// Create the weapon properties stringmap
 	gl_hMapWeaponProperties = new StringMap();
-	
+
 	// Hook the bullet impact event
 	HookEvent("bullet_impact", Event_BulletImpact);
 	HookEvent("player_death", Event_PlayerDeath);
-	
+
 	// Check the plugin late status
 	PluginCheckLate();
+}
+
+public int Native_IsClientBlastJumping(Handle hPlugin, int iNumParams)
+{
+	int iClient = GetNativeCell(1);
+
+	if (EntRefToEntIndex(gl_player_jumping[iClient]) != INVALID_ENT_REFERENCE)
+	{
+		return view_as<int>(true);
+	}
+	else
+	{
+		return view_as<int>(false);
+	}
 }
 
 void PluginCheckEngineVersion()
@@ -125,7 +145,7 @@ void PluginCheckLate()
 			{
 				// Call the client connected forward
 				OnClientConnected(iClient);
-				
+
 				// Check if the client is in game
 				if (IsClientInGame(iClient))
 				{
@@ -137,11 +157,11 @@ void PluginCheckLate()
 	}
 }
 
-public void OnMapStart() 
+public void OnMapStart()
 {
 	// ALSO REQUIRES THESE FILES TO BE DOWNLOADED AND PRECACHED:
 	// * particles/murlisgib.pcf
-	
+
 	AddFileToDownloadsTable("sound/murlisgib/blast_jump.wav");
 
 	PrecacheSound("murlisgib/blast_jump.wav");
@@ -154,27 +174,27 @@ public void OnMapStart()
 public void OnConfigsExecuted()
 {
 	char szConfigFile[PLATFORM_MAX_PATH];
-	
+
 	// Create the configuration keyvalues
 	KeyValues kvConfig = new KeyValues("weapons");
-	
+
 	// Clear the weapon properties stringmap
 	gl_hMapWeaponProperties.Clear();
-	
+
 	// Build the path of the configuration file
 	BuildPath(Path_SM, szConfigFile, sizeof(szConfigFile), "configs/weapon_jump.cfg");
-	
+
 	// Import the configuration file
 	if (kvConfig.ImportFromFile(szConfigFile))
 	{
 		LogMessage("Start to read the configuration file...");
-		
+
 		// Go to the first weapon properties section
 		if (kvConfig.GotoFirstSubKey())
 		{
 			char szWeaponName[32];
 			int  iWeaponProperty[C_WEAPON_PROPERTY_MAXIMUM];
-			
+
 			do
 			{
 				// Read the weapon name
@@ -185,7 +205,7 @@ public void OnConfigsExecuted()
 					float flVelocity  = kvConfig.GetFloat("velocity",  0.00);
 					int   iGround	 = kvConfig.GetNum  ("ground",	0);
 					bool  bGround	 = false;
-					
+
 					// Check & clamp the weapon properties
 					if (flVelocity < 0.00)
 					{
@@ -195,28 +215,28 @@ public void OnConfigsExecuted()
 					{
 						flVelocity = 1.00;
 					}
-					
+
 					if (iGround)
 					{
 						bGround = true;
 					}
-					
+
 					// Convert the weapon properties
 					iWeaponProperty[C_WEAPON_PROPERTY_KNOCKBACK] = view_as<int>(flKnockback);
 					iWeaponProperty[C_WEAPON_PROPERTY_VELOCITY]  = view_as<int>(flVelocity);
 					iWeaponProperty[C_WEAPON_PROPERTY_GROUND]	= view_as<int>(bGround);
-					
+
 					// Push the weapon properties in the stringmap
 					gl_hMapWeaponProperties.SetArray(szWeaponName, iWeaponProperty, C_WEAPON_PROPERTY_MAXIMUM);
-					
-					LogMessage("Read \"%s\" (Knockback: %0.2f | Velocity: %0.2f | Ground: %d).", 
+
+					LogMessage("Read \"%s\" (Knockback: %0.2f | Velocity: %0.2f | Ground: %d).",
 						szWeaponName, flKnockback, flVelocity, bGround);
 				}
-				
+
 				// Go to the next weapon properties section
 			} while (kvConfig.GotoNextKey());
 		}
-		
+
 		LogMessage("Finish to read the configuration file (%d weapons read)!", gl_hMapWeaponProperties.Size);
 	}
 	else
@@ -224,7 +244,7 @@ public void OnConfigsExecuted()
 		LogError("Can't import the configuration file!");
 		LogError("> Path: %s", szConfigFile);
 	}
-	
+
 	delete kvConfig;
 }
 
@@ -236,13 +256,13 @@ void CvarInitialize()
 {
 	// Create the version cvar
 	CreateConVar("sm_weapon_jump_version", C_PLUGIN_VERSION, "Display the plugin version", FCVAR_DONTRECORD | FCVAR_NOTIFY | FCVAR_REPLICATED | FCVAR_SPONLY);
-	
+
 	// Create the custom cvars
 	gl_hCvarPluginEnable = CreateConVar("sm_weapon_jump_enable", "1", "Enable the plugin", _, true, 0.0, true, 1.0);
-	
+
 	// Cache the custom cvars values
 	gl_bPluginEnable = gl_hCvarPluginEnable.BoolValue;
-	
+
 	// Hook the custom cvars change
 	gl_hCvarPluginEnable.AddChangeHook(OnCvarChanged);
 }
@@ -279,36 +299,32 @@ public void OnClientDisconnect(int iClient)
 /* Weapon																	*/
 /* ------------------------------------------------------------------------- */
 
-int gl_player_jumping[MAXPLAYERS + 1] = {INVALID_ENT_REFERENCE, ...};
-
-bool gl_player_just_jumped[MAXPLAYERS + 1] = false;
-
 public Action Event_BulletImpact(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!gl_bPluginEnable)
 		return Plugin_Continue;
-		
+
 	// Get the player
 	int iPlayer = GetClientOfUserId(event.GetInt("userid"));
-	
+
 	// Check if the player is valid and is not already jumping on current shot
 	if ((1 <= iPlayer <= MaxClients) && (gl_bPlayerWeaponJump[iPlayer] == false))
 	{
 		// Get the player active weapon
 		int iWeapon = GetEntPropEnt(iPlayer, Prop_Send, "m_hActiveWeapon");
-		
+
 		// TODO: Maybe a check must be done here on 'iWeapon' (!= -1, IsValidEntity()..).
-		
+
 		// Check the current number of ammo in the loader
 		if (GetEntProp(iWeapon, Prop_Send, "m_iClip1") > 0)
 		{
 			char szWeaponName[32];
 			int  iWeaponProperty[C_WEAPON_PROPERTY_MAXIMUM];
-			
+
 			// Get the weapon name
 			GetClientWeapon(iPlayer, szWeaponName, 32);
 			//event.GetString("weapon", szWeaponName, sizeof(szWeaponName));
-			
+
 			// Check if the weapon name is present in the weapon properties stringmap
 			if (gl_hMapWeaponProperties.GetArray(szWeaponName, iWeaponProperty, C_WEAPON_PROPERTY_MAXIMUM))
 			{
@@ -316,7 +332,7 @@ public Action Event_BulletImpact(Event event, const char[] name, bool dontBroadc
 				float flKnockback = view_as<float>(iWeaponProperty[C_WEAPON_PROPERTY_KNOCKBACK]);
 				float flVelocity  = view_as<float>(iWeaponProperty[C_WEAPON_PROPERTY_VELOCITY]);
 				bool  bGround	 = view_as<bool> (iWeaponProperty[C_WEAPON_PROPERTY_GROUND]);
-				
+
 				// Check if the player can weapon jump on ground
 				if (bGround || !(GetEntityFlags(iPlayer) & FL_ONGROUND))
 				{
@@ -324,7 +340,7 @@ public Action Event_BulletImpact(Event event, const char[] name, bool dontBroadc
 					float feet_pos[3];
 					float player_pos[3];
 					float distance;
-					
+
 					// Get Bullet Impact Position
 					impact_pos[0] = event.GetFloat("x");
 					impact_pos[1] = event.GetFloat("y");
@@ -359,19 +375,19 @@ public Action Event_BulletImpact(Event event, const char[] name, bool dontBroadc
 						float vPlayerVelocity[3];
 						float vPlayerEyeAngles[3];
 						float vPlayerForward[3];
-						
+
 						// Get the player velocity
 						GetEntPropVector(iPlayer, Prop_Data, "m_vecVelocity", vPlayerVelocity);
-						
+
 						// Get the player forward direction
 						GetClientEyeAngles(iPlayer, vPlayerEyeAngles);
 						GetAngleVectors(vPlayerEyeAngles, vPlayerForward, NULL_VECTOR, NULL_VECTOR);
-						
+
 						// Compute the player weapon jump velocity
 						gl_vPlayerWeaponJumpVelocity[iPlayer][0] = vPlayerVelocity[0] * flVelocity - vPlayerForward[0] * flKnockback * lobMultiplier;
 						gl_vPlayerWeaponJumpVelocity[iPlayer][1] = vPlayerVelocity[1] * flVelocity - vPlayerForward[1] * flKnockback * lobMultiplier;
 						gl_vPlayerWeaponJumpVelocity[iPlayer][2] = vPlayerVelocity[2] * flVelocity - vPlayerForward[2] * flKnockback * lobMultiplier;
-						
+
 						// Set the player weapon jump
 						gl_bPlayerWeaponJump[iPlayer] = true;
 
@@ -408,7 +424,7 @@ public Action Event_BulletImpact(Event event, const char[] name, bool dontBroadc
 						DispatchKeyValue(rocket_expl, "effect_name", explosionEffect);
 
 						DispatchSpawn(rocket_expl);
-						
+
 						TeleportEntity(rocket_expl, impact_pos, NULL_VECTOR, NULL_VECTOR);
 
 						ActivateEntity(rocket_expl);
@@ -431,7 +447,7 @@ public Action Event_BulletImpact(Event event, const char[] name, bool dontBroadc
 						DispatchKeyValue(player_jumping, "effect_name", jumpingEffect);
 
 						DispatchSpawn(player_jumping);
-						
+
 						TeleportEntity(player_jumping, feet_pos, NULL_VECTOR, NULL_VECTOR);
 
 						// Make Player Parent of the Particle
@@ -467,7 +483,7 @@ public void OnPlayerPostThinkPost(int iPlayer)
 			gl_player_just_jumped[iPlayer] = true;
 			CreateTimer(0.1, JustJumpedReset, iPlayer);
 		}
-		
+
 		// Reset the player weapon jump
 		gl_bPlayerWeaponJump[iPlayer] = false;
 	}
