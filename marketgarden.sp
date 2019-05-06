@@ -16,7 +16,7 @@ public Plugin myinfo =
 {
 	name = "Market Garden",
 	author = "murlis",
-	description = "Crit players when meeleing while airborne.",
+	description = "Crit players when meeleing while blast-jumping.",
 	version = "1.0",
 	url = "http://steamcommunity.com/id/muhlex"
 };
