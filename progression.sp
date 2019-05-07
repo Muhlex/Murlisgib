@@ -425,8 +425,6 @@ stock char[] GenerateProgressBar(float fPercentage, int iBars, char[] szColorFil
 
 public void OnPluginStart()
 {
-	PrecacheSound(SOUND_RANK_UP);
-
 	g_cvXPNotifications = CreateConVar("xp_notifications", "0", "Whether to show notifications in chat for every XP-awarding event.");
 
 	HookEvent("round_start", Event_RoundStart);
@@ -453,6 +451,8 @@ public void OnClientPostAdminCheck(int iClient)
 
 public void OnMapStart()
 {
+	PrecacheSound(SOUND_RANK_UP);
+
 	g_hTimer_XPBase = CreateTimer(10.0, Timer_XPBase, _, TIMER_REPEAT);
 }
 
