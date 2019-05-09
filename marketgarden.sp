@@ -6,7 +6,7 @@
 #include <sdkhooks>
 
 #define SOUND_DEAL_CRIT "player/bhit_helmet-1.wav"
-#define SOUND_DEAL_CRIT_VOL 0.21
+#define SOUND_DEAL_CRIT_VOL 0.20
 #define SOUND_RECEIVE_CRIT "player/pl_fallpain3.wav"
 #define SOUND_RECEIVE_CRIT_VOL 0.9
 
