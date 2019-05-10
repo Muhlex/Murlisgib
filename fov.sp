@@ -1,6 +1,6 @@
 #include <sourcemod>
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
 	name = "FOV Changer",
 	author = "murlis",
@@ -11,13 +11,13 @@ public Plugin myinfo =
 
 public OnPluginStart()
 {
-  HookEvent("player_spawn", Event_PlayerSpawn);
+	HookEvent("player_spawn", Event_PlayerSpawn);
 }
 
 public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
 {
-  int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 
-  SetEntProp(client, Prop_Send, "m_iFOV", 100);
-  SetEntProp(client, Prop_Send, "m_iDefaultFOV", 100);
+	SetEntProp(client, Prop_Send, "m_iFOV", 100);
+	SetEntProp(client, Prop_Send, "m_iDefaultFOV", 100);
 }
