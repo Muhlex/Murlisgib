@@ -235,10 +235,10 @@ public void ConVarChange_mp_default_secondary(ConVar cvConvar, char[] szOldValue
 
 public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDontBroadcast)
 {
-	// Reset Round
+	// Reset round-based Variables and Objects
 	ResetRound();
 
-	// Reset Clients
+	// Reset round-based Client Variables and Objects
 	LOOP_CLIENTS (iClient, CLIENTFILTER_ALL)
 	{
 		ResetPlayer(iClient);
@@ -377,69 +377,17 @@ public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDon
 {
 	int iClient = GetClientOfUserId(GetEventInt(eEvent, "userid"));
 
-	RequestFrame(RequestFrame_PlayerSpawn, iClient); // NOTICE: This might leave open a single Frame on which Kills are decremented by one
+	RequestFrame(RequestFrame_PlayerSpawn, GetClientUserId(iClient)); // NOTICE: This might leave open a single Frame on which Kills are decremented by one
 }
 
-void RequestFrame_PlayerSpawn(int iClient)
+void RequestFrame_PlayerSpawn(int iUserID)
 {
-	// Update Scoreboard to reflect current Kills (prevents negative Kills)
-	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
-	UpdateScore(iClient, dGibPlayerData.GetInt("iKills"));
-}
+	int iClient = GetClientOfUserId(iUserID);
 
-stock void SerialiseDynamic(Dynamic dynamic)
-{
-	PrintToServer("GETTING ALL DYNAMIC OBJECT MEMBERS");
-	PrintToServer(" > dynamic.MemberCount=%d", dynamic.MemberCount);
-
-	int count = dynamic.MemberCount;
-	DynamicOffset memberoffset;
-	char membername[DYNAMIC_MEMBERNAME_MAXLEN];
-	int someint; bool somebool; float somefloat; char somestring[1024]; Dynamic anotherobj; Handle somehandle; float somevec[3];
-
-	for (int i = 0; i < count; i++)
+	if (Client_IsIngame(iClient))
 	{
-		memberoffset = dynamic.GetMemberOffsetByIndex(i);
-		dynamic.GetMemberNameByIndex(i, membername, sizeof(membername));
-
-		switch (dynamic.GetMemberType(memberoffset))
-		{
-			case DynamicType_Int:
-			{
-				someint = dynamic.GetIntByOffset(memberoffset);
-				PrintToServer("[%d] <int>dynamic.%s = %d", memberoffset, membername, someint);
-			}
-			case DynamicType_Bool:
-			{
-				somebool = dynamic.GetBoolByOffset(memberoffset);
-				PrintToServer("[%d] <bool>dynamic.%s = %d", memberoffset, membername, somebool);
-			}
-			case DynamicType_Float:
-			{
-				somefloat = dynamic.GetFloatByOffset(memberoffset);
-				PrintToServer("[%d] <float>dynamic.%s = %f", memberoffset, membername, somefloat);
-			}
-			case DynamicType_String:
-			{
-				dynamic.GetStringByOffset(memberoffset, somestring, sizeof(somestring));
-				PrintToServer("[%d] <string>dynamic.%s = '%s'", memberoffset, membername, somestring);
-			}
-			case DynamicType_Object:
-			{
-				anotherobj = dynamic.GetDynamicByOffset(memberoffset);
-				someint = anotherobj.GetInt("someint");
-				PrintToServer("[%d] <dynamic>.<int>dynamic.%s.someint = %d", memberoffset, membername, someint);
-			}
-			case DynamicType_Handle:
-			{
-				somehandle = dynamic.GetHandleByOffset(memberoffset);
-				PrintToServer("[%d] <Handle>.dynamic.%s = %d", memberoffset, membername, somehandle);
-			}
-			case DynamicType_Vector:
-			{
-				dynamic.GetVectorByOffset(memberoffset, somevec);
-				PrintToServer("[%d] <Vector>.dynamic.%s = {%f, %f, %f}", memberoffset, membername, somevec[0], somevec[1], somevec[2]);
-			}
-		}
+		// Update Scoreboard to reflect current Kills (prevents negative Kills)
+		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+		UpdateScore(iClient, dGibPlayerData.GetInt("iKills"));
 	}
 }
