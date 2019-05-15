@@ -43,6 +43,10 @@ void InitializeServerSettings()
 	Dynamic dGibSettings = Dynamic();
 	Dynamic dGibData     = Dynamic();
 
+	// Initialize Server Objects
+	dGibData.SetBool("bRoundInProgress", true);
+	dGibData.SetInt("iWinner", 0);
+
 	// Store Murlisgib Settings in Settings Object
 	dSettings.SetDynamic("gib_settings", dGibSettings);
 	dSettings.SetDynamic("gib_data",     dGibData);
@@ -60,7 +64,7 @@ void InitializePlayerSettings(int iClient)
 	// Initialize Client Variables
 	g_bPlayerLastDiedSuicide[iClient] = false;
 
-	// Get connected Client's Kills
+	// Initialize Client Objects
 	if (Client_IsIngame(iClient))
 	{
 		dGibPlayerData.SetInt("iKills", GetClientFrags(iClient));
@@ -71,10 +75,36 @@ void InitializePlayerSettings(int iClient)
 	dPlayerSettings.SetDynamic("gib_data",     dGibPlayerData);
 }
 
+void ResetRound()
+{
+	// Reset Winner
+	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+	dGibData.SetInt("iWinner", 0);
+}
+
 void ResetPlayer(int iClient)
 {
 	// Reset Client Variables
 	g_bPlayerLastDiedSuicide[iClient] = false;
+
+	// Reset Winner (if Client was the winning Player)
+	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+	if (dGibData.GetInt("iWinner", 0) == iClient)
+	{
+		int iWinner = 0;
+
+		LOOP_CLIENTS (i, CLIENTFILTER_INGAME)
+		{
+			Dynamic dGibWinnerData = Dynamic.GetPlayerSettings(iWinner).GetDynamic("gib_data");
+			Dynamic dGibIData = Dynamic.GetPlayerSettings(i).GetDynamic("gib_data");
+
+			if (dGibIData.GetInt("iKills") > dGibWinnerData.GetInt("iKills"))
+			{
+				iWinner = i;
+			}
+		}
+	}
 
 	// Reset Kill-Count
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
@@ -163,8 +193,11 @@ public void ConVarChange_mp_default_secondary(ConVar cvConvar, char[] szOldValue
 
 public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDontBroadcast)
 {
+	// Reset Round
+	ResetRound();
+
 	// Reset Clients
-	LOOP_CLIENTS(iClient, CLIENTFILTER_ALL)
+	LOOP_CLIENTS (iClient, CLIENTFILTER_ALL)
 	{
 		ResetPlayer(iClient);
 	}
@@ -173,6 +206,7 @@ public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDont
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 	dGibData.SetBool("bRoundInProgress", true);
+	SerialiseDynamic(dGibData);
 }
 
 public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBroadcast)
@@ -189,6 +223,7 @@ public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBr
 		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 		dGibData.SetBool("bRoundInProgress", false);
+		SerialiseDynamic(dGibData);
 	}
 }
 
@@ -255,10 +290,34 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		// Mark Player for incrementing Kills on Respawn
 		g_bPlayerLastDiedSuicide[iVictim] = true;
 	}
-	else
+	else if (Client_IsIngame(iAttacker))
 	{
-		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iAttacker).GetDynamic("gib_data");
-		dGibPlayerData.SetInt("iKills", GetClientFrags(iAttacker));
+		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+		Dynamic dGibAttackerData = Dynamic.GetPlayerSettings(iAttacker).GetDynamic("gib_data");
+
+		// Update Attacker's Kill-Count
+		dGibAttackerData.SetInt("iKills", GetClientFrags(iAttacker));
+		// Get currently winning Player
+		int iWinner = dGibData.GetInt("iWinner", 0);
+
+		int iAttackerKills, iWinnerKills;
+
+		if (Client_IsIngame(iWinner))
+		{
+			// Get Winner's Kills
+			Dynamic dGibWinnerData = Dynamic.GetPlayerSettings(iWinner).GetDynamic("gib_data");
+			iWinnerKills = dGibWinnerData.GetInt("iKills");
+			// Get Attacker's Kills
+			iAttackerKills = dGibAttackerData.GetInt("iKills");
+		}
+
+		// Check if there was no Winner or if the current Kill made the Attacker the new winning Player
+		if (dGibData.GetBool("bRoundInProgress") && (iWinner == 0 || iAttackerKills > iWinnerKills))
+		{
+			// Update Winner
+			dGibData.SetInt("iWinner", iAttacker);
+			SerialiseDynamic(dGibData);
+		}
 	}
 }
 
