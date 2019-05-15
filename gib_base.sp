@@ -11,6 +11,9 @@
 
 ConVar g_cv_mp_t_default_secondary;
 ConVar g_cv_mp_ct_default_secondary;
+ConVar g_cv_mp_teamname_1;
+ConVar g_cv_mp_teamname_2;
+ConVar g_cv_mp_default_team_winner_no_objective;
 
 ConVar g_cv_gib_score_suicide_penalty;
 
@@ -93,18 +96,41 @@ int FindWinner()
 	return iWinner;
 }
 
+void SetWinnerScoreboard(int iClient)
+{
+	// Reset Winner
+	if (iClient == 0)
+	{
+		g_cv_mp_teamname_1.SetString(" ");
+		g_cv_mp_teamname_2.SetString(" ");
+		g_cv_mp_default_team_winner_no_objective.SetInt(CS_TEAM_NONE);	}
+	else
+	{
+		char szClientName[33];
+		GetClientName(iClient, szClientName, sizeof(szClientName));
+
+		g_cv_mp_teamname_1.SetString(szClientName);
+		g_cv_mp_teamname_2.SetString(szClientName);
+		g_cv_mp_default_team_winner_no_objective.SetInt(GetClientTeam(iClient));
+	}
+}
+
 void ResetRound()
 {
 	// Reset Winner
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 	dGibData.SetInt("iWinner", 0);
+	SetWinnerScoreboard(0);
 }
 
 void ResetPlayer(int iClient)
 {
-	// Find new Winner (if Client was the winning Player)
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
-	dGibData.SetInt("iWinner", FindWinner());
+
+	// Find new Winner (if Client was the winning Player)
+	int iWinner = FindWinner();
+	dGibData.SetInt("iWinner", iWinner);
+	SetWinnerScoreboard(iWinner);
 
 	// Reset Kill-Count
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
@@ -142,8 +168,16 @@ public void OnPluginStart()
 
 public void OnConfigsExecuted()
 {
+	// Hook Teamnames and Winner-Team
+	g_cv_mp_teamname_1                       = FindConVar("mp_teamname_1");
+	g_cv_mp_teamname_2                       = FindConVar("mp_teamname_2");
+	g_cv_mp_default_team_winner_no_objective = FindConVar("mp_default_team_winner_no_objective");
+
+	// Set these to the default Value
+	SetWinnerScoreboard(0);
+
 	// The default Secondary defines the Weapon to be used as Railgun
-	g_cv_mp_t_default_secondary =  FindConVar("mp_t_default_secondary");
+	g_cv_mp_t_default_secondary  = FindConVar("mp_t_default_secondary");
 	g_cv_mp_ct_default_secondary = FindConVar("mp_ct_default_secondary");
 
 	// Hook whenever one of these change, to also force the Other to the same Value
@@ -214,7 +248,6 @@ public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDont
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 	dGibData.SetBool("bRoundInProgress", true);
-	SerialiseDynamic(dGibData);
 }
 
 public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBroadcast)
@@ -231,7 +264,6 @@ public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBr
 		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 		dGibData.SetBool("bRoundInProgress", false);
-		SerialiseDynamic(dGibData);
 	}
 }
 
@@ -265,22 +297,8 @@ public Action Timer_RefillRailgun(Handle hTimer, int iWeapon)
 
 public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
 {
-	// Get Attacker Client ID and Name
 	int iAttacker = GetClientOfUserId(GetEventInt(eEvent, "attacker"));
-	char szAttackerName[33];
-	GetClientName(iAttacker, szAttackerName, sizeof(szAttackerName));
-
-	// Get Victim Client ID and Name
 	int iVictim = GetClientOfUserId(GetEventInt(eEvent, "userid"));
-	char szVictimName[33];
-	GetClientName(iVictim, szVictimName, sizeof(szVictimName));
-
-	// Get Name of used Weapon
-	char szWeaponName[33];
-	GetEventString(eEvent, "weapon", szWeaponName, sizeof(szWeaponName));
-
-	// Get if Kill was a Headshot
-	bool bHeadshot = GetEventBool(eEvent, "headshot");
 
 	// Exclude invalid Cases where Victim is no longer ingame
 	if (!Client_IsIngame(iVictim))
@@ -306,7 +324,9 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			dGibVictimData.SetInt("iKills", iVictimKills);
 
 			// Find new Winner
-			dGibData.SetInt("iWinner", FindWinner());
+			int iWinner = FindWinner();
+			dGibData.SetInt("iWinner", iWinner);
+			SetWinnerScoreboard(iWinner);
 		}
 
 		// Send current Kills and Points to the Scoreboard
@@ -339,16 +359,18 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			if (iWinner == 0)
 			{
 				// Find new Winner
+				iWinner = FindWinner();
 				dGibData.SetInt("iWinner", FindWinner());
+				SetWinnerScoreboard(iWinner);
 			}
 			else if (iAttackerKills > iWinnerKills)
 			{
 				// Set Attacker as Winner
 				dGibData.SetInt("iWinner", iAttacker);
+				SetWinnerScoreboard(iAttacker);
 			}
 		}
 	}
-	SerialiseDynamic(dGibData);
 }
 
 public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDontBroadcast)
