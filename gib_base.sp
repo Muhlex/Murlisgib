@@ -1,0 +1,338 @@
+#pragma semicolon 1
+#pragma newdecls required
+
+#include <sourcemod>
+#include <cstrike>
+
+#include <smlib>
+#include <dynamic>
+
+#define RAILGUN_CYCLETIME 1.0
+
+ConVar g_cv_mp_t_default_secondary;
+ConVar g_cv_mp_ct_default_secondary;
+
+bool g_bPlayerLastDiedSuicide[MAXPLAYERS + 1];
+
+public Plugin myinfo =
+{
+	name = "Murlisgib Base Plugin",
+	author = "murlis",
+	description = "Provides basic functionality for Murlisgib.",
+	version = "1.0",
+	url = "http://steamcommunity.com/id/muhlex"
+};
+
+// Fix for Dynamic not resetting Client Objects on Disconnect
+public void OnClientDisconnect_Post(int iClient)
+{
+	Dynamic_ResetObject(iClient);
+}
+
+/*
+ *
+ * Functions
+ */
+
+void InitializeServerSettings()
+{
+	// Get global Server Settings Object
+	Dynamic dSettings = Dynamic.GetSettings();
+
+	// Create Murlisgib-Settings
+	Dynamic dGibSettings = Dynamic();
+	Dynamic dGibData     = Dynamic();
+
+	// Store Murlisgib Settings in Settings Object
+	dSettings.SetDynamic("gib_settings", dGibSettings);
+	dSettings.SetDynamic("gib_data",     dGibData);
+}
+
+void InitializePlayerSettings(int iClient)
+{
+	// Get each Client's Settings Object
+	Dynamic dPlayerSettings = Dynamic.GetPlayerSettings(iClient);
+
+	// Create Murlisgib-PlayerSettings
+	Dynamic dGibPlayerSettings = Dynamic();
+	Dynamic dGibPlayerData     = Dynamic();
+
+	// Initialize Client Variables
+	g_bPlayerLastDiedSuicide[iClient] = false;
+
+	// Get connected Client's Kills
+	if (Client_IsIngame(iClient))
+	{
+		dGibPlayerData.SetInt("iKills", GetClientFrags(iClient));
+	}
+
+	// Store Murlisgib Settings in PlayerSettings Object
+	dPlayerSettings.SetDynamic("gib_settings", dGibPlayerSettings);
+	dPlayerSettings.SetDynamic("gib_data",     dGibPlayerData);
+}
+
+void ResetPlayer(int iClient)
+{
+	// Reset Client Variables
+	g_bPlayerLastDiedSuicide[iClient] = false;
+
+	// Reset Kill-Count
+	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+	dGibPlayerData.SetInt("iKills", 0);
+}
+
+/*
+ *
+ * Public Forwards
+ */
+
+public void OnPluginStart()
+{
+	HookEvent("round_start",  GameEvent_RoundStart, EventHookMode_PostNoCopy);
+	HookEvent("round_end",    GameEvent_RoundEnd);
+	HookEvent("weapon_fire",  GameEvent_WeaponFire);
+	HookEvent("player_death", GameEvent_PlayerDeath);
+	HookEvent("player_spawn", GameEvent_PlayerSpawn);
+
+	InitializeServerSettings();
+
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	{
+		InitializePlayerSettings(iClient);
+	}
+}
+
+public void OnConfigsExecuted()
+{
+	// The default Secondary defines the Weapon to be used as Railgun
+	g_cv_mp_t_default_secondary =  FindConVar("mp_t_default_secondary");
+	g_cv_mp_ct_default_secondary = FindConVar("mp_ct_default_secondary");
+
+	// Hook whenever one of these change, to also force the Other to the same Value
+	g_cv_mp_t_default_secondary.AddChangeHook(ConVarChange_mp_default_secondary);
+	g_cv_mp_ct_default_secondary.AddChangeHook(ConVarChange_mp_default_secondary);
+
+	// Always grab and save T default Secondary as Railgun first
+	char szDefault[33];
+	g_cv_mp_t_default_secondary.GetString(szDefault, sizeof(szDefault));
+
+	Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
+	dGibSettings.SetString("szRailgun", szDefault, 33);
+}
+
+public void OnClientConnected(int iClient)
+{
+	// Re-Initialize Client Settings
+	InitializePlayerSettings(iClient);
+}
+
+/*
+ *
+ * ConVar Hooks
+ */
+
+public void ConVarChange_mp_default_secondary(ConVar cvConvar, char[] szOldValue, char[] szNewValue)
+{
+	char szTDefault[33], szCTDefault[33];
+
+	g_cv_mp_t_default_secondary.GetString(szTDefault, sizeof(szTDefault));
+	g_cv_mp_ct_default_secondary.GetString(szCTDefault, sizeof(szCTDefault));
+
+	Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
+
+	// On Change of a default Secondary, also change the default Secondary of the other Team
+	if (!StrEqual(szTDefault, szCTDefault))
+	{
+		if (cvConvar == g_cv_mp_t_default_secondary)
+		{
+			g_cv_mp_ct_default_secondary.SetString(szTDefault);
+			dGibSettings.SetString("szRailgun", szTDefault, 33);
+		}
+		else
+		{
+			g_cv_mp_t_default_secondary.SetString(szCTDefault);
+			dGibSettings.SetString("szRailgun", szCTDefault, 33);
+		}
+	}
+}
+
+/*
+ *
+ * Game-Event Hooks
+ */
+
+public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	// Reset Clients
+	LOOP_CLIENTS(iClient, CLIENTFILTER_ALL)
+	{
+		ResetPlayer(iClient);
+	}
+
+	// Save if Round is in Progress to Server Data Object
+	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+	dGibData.SetBool("bRoundInProgress", true);
+}
+
+public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	// Get Reason for the Round ending
+	int iReason = GetEventInt(eEvent, "reason");
+	// Define GameStart Reason
+	int iReason_GameStart = view_as<int>(CSRoundEnd_GameStart) + 1;
+
+	// Check for an actual Round-End; Exclude the Pre-Game ending
+	if (iReason != iReason_GameStart)
+	{
+		// Save if Round is no longer in Progress to Server Data Object
+		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+		dGibData.SetBool("bRoundInProgress", false);
+	}
+}
+
+public Action GameEvent_WeaponFire(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	int iClient = GetClientOfUserId(GetEventInt(eEvent, "userid"));
+	int iWeapon = Client_GetActiveWeapon(iClient);
+
+	char szWeaponName[33];
+	GetEventString(eEvent, "weapon", szWeaponName, sizeof(szWeaponName));
+
+	// Get Railgun Weapon-Type
+	char szRailgun[33];
+	Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
+	dGibSettings.GetString("szRailgun", szRailgun, sizeof(szRailgun));
+
+	// Check if the Railgun was used; If so, refill the Magazine
+	if (StrEqual(szWeaponName, szRailgun))
+	{
+		CreateTimer(RAILGUN_CYCLETIME - 0.25, Timer_RefillRailgun, iWeapon);
+	}
+}
+
+public Action Timer_RefillRailgun(Handle hTimer, int iWeapon)
+{
+	if (Weapon_IsValid(iWeapon))
+	{
+		Weapon_SetPrimaryClip(iWeapon, 1);
+	}
+}
+
+public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	// Get Attacker Client ID and Name
+	int iAttacker = GetClientOfUserId(GetEventInt(eEvent, "attacker"));
+	char szAttackerName[33];
+	GetClientName(iAttacker, szAttackerName, sizeof(szAttackerName));
+
+	// Get Victim Client ID and Name
+	int iVictim = GetClientOfUserId(GetEventInt(eEvent, "userid"));
+	char szVictimName[33];
+	GetClientName(iVictim, szVictimName, sizeof(szVictimName));
+
+	// Get Name of used Weapon
+	char szWeaponName[33];
+	GetEventString(eEvent, "weapon", szWeaponName, sizeof(szWeaponName));
+
+	// Get if Kill was a Headshot
+	bool bHeadshot = GetEventBool(eEvent, "headshot");
+
+	// Exclude invalid Cases where Victim is no longer ingame
+	if (!Client_IsIngame(iVictim))
+	{
+		return;
+	}
+
+	// Check for Suicide
+	if (iVictim == iAttacker || iAttacker == 0)
+	{
+		// Increment Kill-Count to prevent Suicides from removing Kills
+		// This needs to be done instantly after death, as well as on Respawn
+		Client_SetScore(iVictim, GetClientFrags(iVictim) + 1);
+
+		// Mark Player for incrementing Kills on Respawn
+		g_bPlayerLastDiedSuicide[iVictim] = true;
+	}
+	else
+	{
+		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iAttacker).GetDynamic("gib_data");
+		dGibPlayerData.SetInt("iKills", GetClientFrags(iAttacker));
+	}
+}
+
+public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	int iClient = GetClientOfUserId(GetEventInt(eEvent, "userid"));
+
+	RequestFrame(PlayerSpawn_IncrementKills, iClient); // NOTICE: This might leave open a single Frame on which Kills are decremented by one
+}
+
+void PlayerSpawn_IncrementKills(int iClient)
+{
+	// Increment Client Kills by 1 if previous Death was a Suicide
+	// Called on Suicide to prevent losing a Kill
+	if (g_bPlayerLastDiedSuicide[iClient])
+	{
+		g_bPlayerLastDiedSuicide[iClient] = false;
+		Client_SetScore(iClient, GetClientFrags(iClient) + 1);
+	}
+}
+
+stock void SerialiseDynamic(Dynamic dynamic)
+{
+	PrintToServer("GETTING ALL DYNAMIC OBJECT MEMBERS");
+	PrintToServer(" > dynamic.MemberCount=%d", dynamic.MemberCount);
+
+	int count = dynamic.MemberCount;
+	DynamicOffset memberoffset;
+	char membername[DYNAMIC_MEMBERNAME_MAXLEN];
+	int someint; bool somebool; float somefloat; char somestring[1024]; Dynamic anotherobj; Handle somehandle; float somevec[3];
+
+	for (int i = 0; i < count; i++)
+	{
+		memberoffset = dynamic.GetMemberOffsetByIndex(i);
+		dynamic.GetMemberNameByIndex(i, membername, sizeof(membername));
+
+		switch (dynamic.GetMemberType(memberoffset))
+		{
+			case DynamicType_Int:
+			{
+				someint = dynamic.GetIntByOffset(memberoffset);
+				PrintToServer("[%d] <int>dynamic.%s = %d", memberoffset, membername, someint);
+			}
+			case DynamicType_Bool:
+			{
+				somebool = dynamic.GetBoolByOffset(memberoffset);
+				PrintToServer("[%d] <bool>dynamic.%s = %d", memberoffset, membername, somebool);
+			}
+			case DynamicType_Float:
+			{
+				somefloat = dynamic.GetFloatByOffset(memberoffset);
+				PrintToServer("[%d] <float>dynamic.%s = %f", memberoffset, membername, somefloat);
+			}
+			case DynamicType_String:
+			{
+				dynamic.GetStringByOffset(memberoffset, somestring, sizeof(somestring));
+				PrintToServer("[%d] <string>dynamic.%s = '%s'", memberoffset, membername, somestring);
+			}
+			case DynamicType_Object:
+			{
+				anotherobj = dynamic.GetDynamicByOffset(memberoffset);
+				someint = anotherobj.GetInt("someint");
+				PrintToServer("[%d] <dynamic>.<int>dynamic.%s.someint = %d", memberoffset, membername, someint);
+			}
+			case DynamicType_Handle:
+			{
+				somehandle = dynamic.GetHandleByOffset(memberoffset);
+				PrintToServer("[%d] <Handle>.dynamic.%s = %d", memberoffset, membername, somehandle);
+			}
+			case DynamicType_Vector:
+			{
+				dynamic.GetVectorByOffset(memberoffset, somevec);
+				PrintToServer("[%d] <Vector>.dynamic.%s = {%f, %f, %f}", memberoffset, membername, somevec[0], somevec[1], somevec[2]);
+			}
+		}
+	}
+}
