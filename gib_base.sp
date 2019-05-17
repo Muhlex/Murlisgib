@@ -37,7 +37,7 @@ public void OnClientDisconnect_Post(int iClient)
  * Functions
  */
 
-void InitializeServerObjects()
+void InitializeServer()
 {
 	// Get global Server Settings Object
 	Dynamic dSettings = Dynamic.GetSettings();
@@ -46,7 +46,7 @@ void InitializeServerObjects()
 	Dynamic dGibSettings = Dynamic();
 	Dynamic dGibData     = Dynamic();
 
-	// Initialize Server Objects
+	// Initialize Server Object Members
 	dGibData.SetBool("bRoundInProgress", true);
 	dGibData.SetInt("iWinner", 0);
 
@@ -55,7 +55,7 @@ void InitializeServerObjects()
 	dSettings.SetDynamic("gib_data",     dGibData);
 }
 
-void InitializePlayerObjects(int iClient)
+void InitializePlayer(int iClient)
 {
 	// Get each Client's Settings Object
 	Dynamic dPlayerSettings = Dynamic.GetPlayerSettings(iClient);
@@ -64,18 +64,12 @@ void InitializePlayerObjects(int iClient)
 	Dynamic dGibPlayerSettings = Dynamic();
 	Dynamic dGibPlayerData     = Dynamic();
 
-	// Initialize Client Objects
+	// Initialize Client Object Members
 	dGibPlayerData.SetInt("iKills", 0);
 
 	// Store Murlisgib Settings in PlayerSettings Object
 	dPlayerSettings.SetDynamic("gib_settings", dGibPlayerSettings);
 	dPlayerSettings.SetDynamic("gib_data",     dGibPlayerData);
-
-	// Reflect Kill-Count on Scoreboard
-	if (Client_IsIngame(iClient))
-	{
-		UpdateScore(iClient, dGibPlayerData.GetInt("iKills"));
-	}
 }
 
 int FindWinner()
@@ -103,7 +97,8 @@ void SetWinnerScoreboard(int iClient)
 	{
 		g_cv_mp_teamname_1.SetString(" ");
 		g_cv_mp_teamname_2.SetString(" ");
-		g_cv_mp_default_team_winner_no_objective.SetInt(CS_TEAM_NONE);	}
+		g_cv_mp_default_team_winner_no_objective.SetInt(CS_TEAM_NONE);
+	}
 	else
 	{
 		char szClientName[33];
@@ -158,11 +153,11 @@ public void OnPluginStart()
 	HookEvent("player_death", GameEvent_PlayerDeath);
 	HookEvent("player_spawn", GameEvent_PlayerSpawn);
 
-	InitializeServerObjects();
+	InitializeServer();
 
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
-		InitializePlayerObjects(iClient);
+		InitializePlayer(iClient);
 	}
 }
 
@@ -195,7 +190,7 @@ public void OnConfigsExecuted()
 public void OnClientConnected(int iClient)
 {
 	// Re-Initialize Client Settings
-	InitializePlayerObjects(iClient);
+	InitializePlayer(iClient);
 }
 
 /*
