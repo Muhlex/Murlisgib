@@ -8,14 +8,14 @@
 
 #include <murlisgib>
 
-#define HITSOUND_1 "ui/item_drop.wav"
-#define HITSOUND_2 "ui/item_drop1_common.wav"
-#define HITSOUND_VOLUME 0.88
+#define SND_HITSOUND_1 "ui/item_drop.wav"
+#define SND_HITSOUND_2 "ui/item_drop1_common.wav"
+#define SND_HITSOUND_VOLUME 0.88
 
-#define HEADSHOT_1 "commander/train_bodydamageheadshot_01.wav"
-#define HEADSHOT_2 "commander/train_bodydamageheadshot_01b.wav"
-#define HEADSHOT_3 "commander/train_bodydamageheadshot_02.wav"
-#define HEADSHOT_VOLUME 1.0
+#define SND_HEADSHOT_1 "commander/train_bodydamageheadshot_01.wav"
+#define SND_HEADSHOT_2 "commander/train_bodydamageheadshot_01b.wav"
+#define SND_HEADSHOT_3 "commander/train_bodydamageheadshot_02.wav"
+#define SND_HEADSHOT_VOLUME 1.0
 
 ConVar g_cv_gib_killsound_generic;
 ConVar g_cv_gib_killsound_headshot;
@@ -46,12 +46,12 @@ public void OnPluginStart()
 
 public void OnMapStart()
 {
-	PrecacheSound(HITSOUND_1);
-	PrecacheSound(HITSOUND_2);
+	PrecacheSound(SND_HITSOUND_1);
+	PrecacheSound(SND_HITSOUND_2);
 
-	PrecacheSound(HEADSHOT_1);
-	PrecacheSound(HEADSHOT_2);
-	PrecacheSound(HEADSHOT_3);
+	PrecacheSound(SND_HEADSHOT_1);
+	PrecacheSound(SND_HEADSHOT_2);
+	PrecacheSound(SND_HEADSHOT_3);
 }
 
 /*
@@ -85,11 +85,11 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		// Play Generic Killsound
 		switch (GetRandomInt(1, 2))
 		{
-			case 1: szSound = HITSOUND_1;
-			case 2: szSound = HITSOUND_2;
+			case 1: szSound = SND_HITSOUND_1;
+			case 2: szSound = SND_HITSOUND_2;
 		}
 
-		Sound_PlayUIClient(iAttacker, szSound, HITSOUND_VOLUME);
+		Sound_PlayUIClient(iAttacker, szSound, SND_HITSOUND_VOLUME);
 	}
 
 	// Check if Headshot-Announcements are enabled and if Kill was a Headshot
@@ -111,12 +111,12 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			// Play Headshot Announcer
 			switch (GetRandomInt(1, 3))
 			{
-				case 1: szSound = HEADSHOT_1;
-				case 2: szSound = HEADSHOT_2;
-				case 3: szSound = HEADSHOT_2;
+				case 1: szSound = SND_HEADSHOT_1;
+				case 2: szSound = SND_HEADSHOT_2;
+				case 3: szSound = SND_HEADSHOT_2;
 			}
 
-			Sound_PlayUIClient(iAttacker, szSound, HEADSHOT_VOLUME);
+			Sound_PlayUIClient(iAttacker, szSound, SND_HEADSHOT_VOLUME);
 		}
 	}
 }
