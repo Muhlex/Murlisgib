@@ -51,6 +51,75 @@ void InitializePlayer(int iClient)
 	dGibPlayerData.HookChanges(DynamicChange_GibPlayerData);
 }
 
+void PrintKillstreak(int iClient, int iKillstreak)
+{
+	if (iKillstreak < 5)
+	{
+		return;
+	}
+
+	if (1 <= g_cv_gib_killstreaks_announce_text.IntValue <= 2)
+	{
+		if (iKillstreak % 5 == 0)
+		{
+			// Get Client's Name
+			char szClientName[33];
+			GetClientName(iClient, szClientName, sizeof(szClientName));
+
+			// Display Killstreak-Announcement
+			if (g_cv_gib_killstreaks_announce_text.IntValue == 1)
+			{
+				PrintToChat(iClient, " %s%s%s is on a %s%i %sKillstreak!",
+				COLOR_NAME, szClientName, COLOR_BASE, COLOR_HIGHLIGHT, iKillstreak, COLOR_BASE);
+			}
+			else if (g_cv_gib_killstreaks_announce_text.IntValue == 2)
+			{
+				PrintToChatAll(" %s%s%s is on a %s%i %sKillstreak!",
+				COLOR_NAME, szClientName, COLOR_BASE, COLOR_HIGHLIGHT, iKillstreak, COLOR_BASE);
+			}
+		}
+	}
+
+	if (1 <= g_cv_gib_killstreaks_announce_sound.IntValue <= 2)
+	{
+		switch (iKillstreak % 5)
+		{
+			case 1:
+			{
+				Sound_PlayUIClient(iClient, SND_KILLSTREAK_1, SND_KILLSTREAK_VOLUME);
+			}
+			case 2:
+			{
+				Sound_PlayUIClient(iClient, SND_KILLSTREAK_2, SND_KILLSTREAK_VOLUME);
+			}
+			case 3:
+			{
+				Sound_PlayUIClient(iClient, SND_KILLSTREAK_3, SND_KILLSTREAK_VOLUME);
+			}
+			case 4:
+			{
+				Sound_PlayUIClient(iClient, SND_KILLSTREAK_4, SND_KILLSTREAK_VOLUME);
+			}
+			case 0:
+			{
+				if (g_cv_gib_killstreaks_announce_sound.IntValue == 1)
+				{
+					Sound_PlayUIClient(iClient, SND_KILLSTREAK_MILESTONE, SND_KILLSTREAK_MILESTONE_VOLUME);
+				}
+				else
+				{
+					Sound_PlayUIAll(SND_KILLSTREAK_MILESTONE, SND_KILLSTREAK_MILESTONE_VOLUME);
+				}
+
+				if (iKillstreak != 5)
+				{
+					Sound_PlayUIClient(iClient, SND_KILLSTREAK_5, SND_KILLSTREAK_VOLUME);
+				}
+			}
+		}
+	}
+}
+
 /*
  *
  * Public Forwards
@@ -154,73 +223,4 @@ public void DynamicChange_GibPlayerData(Dynamic dGibPlayerData, DynamicOffset do
 	}
 
 	iKillsPre[iClient] = iKills;
-}
-
-void PrintKillstreak(int iClient, int iKillstreak)
-{
-	if (iKillstreak < 5)
-	{
-		return;
-	}
-
-	if (1 <= g_cv_gib_killstreaks_announce_text.IntValue <= 2)
-	{
-		if (iKillstreak % 5 == 0)
-		{
-			// Get Client's Name
-			char szClientName[33];
-			GetClientName(iClient, szClientName, sizeof(szClientName));
-
-			// Display Killstreak-Announcement
-			if (g_cv_gib_killstreaks_announce_text.IntValue == 1)
-			{
-				PrintToChat(iClient, " %s%s%s is on a %s%i %sKillstreak!",
-				COLOR_NAME, szClientName, COLOR_BASE, COLOR_HIGHLIGHT, iKillstreak, COLOR_BASE);
-			}
-			else if (g_cv_gib_killstreaks_announce_text.IntValue == 2)
-			{
-				PrintToChatAll(" %s%s%s is on a %s%i %sKillstreak!",
-				COLOR_NAME, szClientName, COLOR_BASE, COLOR_HIGHLIGHT, iKillstreak, COLOR_BASE);
-			}
-		}
-	}
-
-	if (1 <= g_cv_gib_killstreaks_announce_sound.IntValue <= 2)
-	{
-		switch (iKillstreak % 5)
-		{
-			case 1:
-			{
-				Sound_PlayUIClient(iClient, SND_KILLSTREAK_1, SND_KILLSTREAK_VOLUME);
-			}
-			case 2:
-			{
-				Sound_PlayUIClient(iClient, SND_KILLSTREAK_2, SND_KILLSTREAK_VOLUME);
-			}
-			case 3:
-			{
-				Sound_PlayUIClient(iClient, SND_KILLSTREAK_3, SND_KILLSTREAK_VOLUME);
-			}
-			case 4:
-			{
-				Sound_PlayUIClient(iClient, SND_KILLSTREAK_4, SND_KILLSTREAK_VOLUME);
-			}
-			case 0:
-			{
-				if (g_cv_gib_killstreaks_announce_sound.IntValue == 1)
-				{
-					Sound_PlayUIClient(iClient, SND_KILLSTREAK_MILESTONE, SND_KILLSTREAK_MILESTONE_VOLUME);
-				}
-				else
-				{
-					Sound_PlayUIAll(SND_KILLSTREAK_MILESTONE, SND_KILLSTREAK_MILESTONE_VOLUME);
-				}
-
-				if (iKillstreak != 5)
-				{
-					Sound_PlayUIClient(iClient, SND_KILLSTREAK_5, SND_KILLSTREAK_VOLUME);
-				}
-			}
-		}
-	}
 }
