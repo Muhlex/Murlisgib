@@ -4,7 +4,6 @@
 #include <sourcemod>
 
 #include <smlib>
-#include <dynamic>
 
 #include <murlisgib>
 
@@ -16,6 +15,8 @@
 #define SND_HEADSHOT_2 "commander/train_bodydamageheadshot_01b.wav"
 #define SND_HEADSHOT_3 "commander/train_bodydamageheadshot_02.wav"
 #define SND_HEADSHOT_VOLUME 1.0
+
+ConVar g_cv_gib_railgun;
 
 ConVar g_cv_gib_killsound_generic;
 ConVar g_cv_gib_killsound_headshot;
@@ -42,6 +43,11 @@ public void OnPluginStart()
 	g_cv_gib_killsound_headshot_railgun_only = CreateConVar("gib_killsound_headshot_railgun_only", "1", "Whether to play Headshot-Announcements on Railgun-Kill only.");
 
 	HookEvent("player_death", GameEvent_PlayerDeath);
+}
+
+public void OnConfigsExecuted()
+{
+	g_cv_gib_railgun = FindConVar("gib_railgun");
 }
 
 public void OnMapStart()
@@ -100,10 +106,8 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		// Add "_weapon"-Prefix
 		Format(szWeaponName, 32, "weapon_%s", szWeaponName);
 
-		Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
-
 		char szRailgun[33];
-		dGibSettings.GetString("szRailgun", szRailgun, sizeof(szRailgun));
+		g_cv_gib_railgun.GetString(szRailgun, sizeof(szRailgun));
 
 		// Check if only the Railgun should trigger the Sound and check for the Railgun being used on Kill
 		if (!g_cv_gib_killsound_headshot_railgun_only.BoolValue || StrEqual(szWeaponName, szRailgun))
