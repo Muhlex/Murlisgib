@@ -189,7 +189,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 	if (iOldKillstreak >= 5 && g_cv_gib_killstreaks_announce_text.BoolValue)
 	{
 		// Display Killstreak-End
-		PrintToChatAll(" %s%s%s's %s%i %sKillstreak was ended.",
+		PrintToChatAll(" %s%s%s's %s%i %sKillstreak ended.",
 		COLOR_NAME, szVictimName, COLOR_BASE, COLOR_LOWLIGHT, iOldKillstreak, COLOR_BASE);
 	}
 }
