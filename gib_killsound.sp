@@ -101,16 +101,16 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 	// Check if Headshot-Announcements are enabled and if Kill was a Headshot
 	if (g_cv_gib_killsound_headshot.BoolValue && bHeadshot)
 	{
-		char szWeaponName[32];
-		GetEventString(eEvent, "weapon", szWeaponName, 32);
+		char szWeaponName[33];
+		GetEventString(eEvent, "weapon", szWeaponName, sizeof(szWeaponName));
 		// Add "_weapon"-Prefix
-		Format(szWeaponName, 32, "weapon_%s", szWeaponName);
+		Format(szWeaponName, sizeof(szWeaponName), "weapon_%s", szWeaponName);
 
-		char szRailgun[33];
-		g_cv_gib_railgun.GetString(szRailgun, sizeof(szRailgun));
+		char szRailgunName[33];
+		g_cv_gib_railgun.GetString(szRailgunName, sizeof(szRailgunName));
 
 		// Check if only the Railgun should trigger the Sound and check for the Railgun being used on Kill
-		if (!g_cv_gib_killsound_headshot_railgun_only.BoolValue || StrEqual(szWeaponName, szRailgun))
+		if (!g_cv_gib_killsound_headshot_railgun_only.BoolValue || StrEqual(szWeaponName, szRailgunName))
 		{
 			// Play Headshot Announcer
 			switch (GetRandomInt(1, 3))
