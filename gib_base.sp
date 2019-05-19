@@ -15,6 +15,7 @@ ConVar g_cv_mp_teamname_1;
 ConVar g_cv_mp_teamname_2;
 ConVar g_cv_mp_default_team_winner_no_objective;
 
+ConVar g_cv_gib_railgun;
 ConVar g_cv_gib_score_suicide_penalty;
 
 public Plugin myinfo =
@@ -145,6 +146,7 @@ void UpdateScore(int iClient, int iKills)
 
 public void OnPluginStart()
 {
+	g_cv_gib_railgun = CreateConVar("gib_railgun", "weapon_usp_silencer", "Secondary Weapon to be used as the Railgun.");
 	g_cv_gib_score_suicide_penalty = CreateConVar("gib_score_suicide_penalty", "0", "Value to decrease/increase Player Kill-Count on suicide.");
 
 	HookEvent("round_start",  GameEvent_RoundStart, EventHookMode_PostNoCopy);
@@ -163,7 +165,7 @@ public void OnPluginStart()
 
 public void OnConfigsExecuted()
 {
-	// Hook Teamnames and Winner-Team
+	// Cache Teamnames and Winner-Team
 	g_cv_mp_teamname_1                       = FindConVar("mp_teamname_1");
 	g_cv_mp_teamname_2                       = FindConVar("mp_teamname_2");
 	g_cv_mp_default_team_winner_no_objective = FindConVar("mp_default_team_winner_no_objective");
@@ -176,15 +178,17 @@ public void OnConfigsExecuted()
 	g_cv_mp_ct_default_secondary = FindConVar("mp_ct_default_secondary");
 
 	// Hook whenever one of these change, to also force the Other to the same Value
-	g_cv_mp_t_default_secondary.AddChangeHook(ConVarChange_mp_default_secondary);
-	g_cv_mp_ct_default_secondary.AddChangeHook(ConVarChange_mp_default_secondary);
+	// Also update them when the Railgun is changed via the Plugin's ConVar
+	g_cv_mp_t_default_secondary.AddChangeHook(ConVarChange_gib_railgun);
+	g_cv_mp_ct_default_secondary.AddChangeHook(ConVarChange_gib_railgun);
+	g_cv_gib_railgun.AddChangeHook(ConVarChange_gib_railgun);
 
-	// Always grab and save T default Secondary as Railgun first
-	char szDefault[33];
-	g_cv_mp_t_default_secondary.GetString(szDefault, sizeof(szDefault));
+	// Always set default Secondaries to the Railgun first
+	char szRailgun[33];
+	g_cv_gib_railgun.GetString(szRailgun, sizeof(szRailgun));
 
-	Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
-	dGibSettings.SetString("szRailgun", szDefault, 33);
+	g_cv_mp_t_default_secondary.SetString(szRailgun);
+	g_cv_mp_ct_default_secondary.SetString(szRailgun);
 }
 
 public void OnClientConnected(int iClient)
@@ -198,29 +202,17 @@ public void OnClientConnected(int iClient)
  * ConVar Hooks
  */
 
-public void ConVarChange_mp_default_secondary(ConVar cvConvar, char[] szOldValue, char[] szNewValue)
+public void ConVarChange_gib_railgun(ConVar cvConvar, char[] szOldValue, char[] szNewValue)
 {
-	char szTDefault[33], szCTDefault[33];
+	// Update default Secondaries and Railgun if any of them are changed
+	char szRailgun[33];
+	cvConvar.GetString(szRailgun, sizeof(szRailgun));
 
-	g_cv_mp_t_default_secondary.GetString(szTDefault, sizeof(szTDefault));
-	g_cv_mp_ct_default_secondary.GetString(szCTDefault, sizeof(szCTDefault));
+	g_cv_gib_railgun.SetString(szRailgun);
+	g_cv_mp_t_default_secondary.SetString(szRailgun);
+	g_cv_mp_ct_default_secondary.SetString(szRailgun);
 
-	Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
-
-	// On Change of a default Secondary, also change the default Secondary of the other Team
-	if (!StrEqual(szTDefault, szCTDefault))
-	{
-		if (cvConvar == g_cv_mp_t_default_secondary)
-		{
-			g_cv_mp_ct_default_secondary.SetString(szTDefault);
-			dGibSettings.SetString("szRailgun", szTDefault, 33);
-		}
-		else
-		{
-			g_cv_mp_t_default_secondary.SetString(szCTDefault);
-			dGibSettings.SetString("szRailgun", szCTDefault, 33);
-		}
-	}
+	return;
 }
 
 /*
@@ -272,10 +264,9 @@ public Action GameEvent_WeaponFire(Event eEvent, const char[] szName, bool bDont
 
 	// Get Railgun Weapon-Type
 	char szRailgun[33];
-	Dynamic dGibSettings = Dynamic.GetSettings().GetDynamic("gib_settings");
-	dGibSettings.GetString("szRailgun", szRailgun, sizeof(szRailgun));
+	g_cv_gib_railgun.GetString(szRailgun, sizeof(szRailgun));
 
-	// Check if the Railgun was used; If so, refill the Magazine
+	// Check if the Railgun was used. If so, refill the Magazine
 	if (StrEqual(szWeaponName, szRailgun))
 	{
 		CreateTimer(RAILGUN_CYCLETIME - 0.25, Timer_RefillRailgun, iWeapon);
