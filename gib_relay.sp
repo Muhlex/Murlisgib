@@ -8,6 +8,11 @@
 
 #include <murlisgib>
 
+#define COLOR_PRIMARY "#FFFFFF"
+#define COLOR_SECONDARY "#75818E"
+#define COLOR_HIGHLIGHT_HEX "#E4AE39"
+#define COLOR_LOWLIGHT_HEX "#B0C3D9"
+
 #define SND_RELAY_PASSED "ui/panorama/inventory_new_item_01.wav"
 #define SND_RELAY_PASSED_VOLUME 0.1
 
@@ -17,6 +22,7 @@
 
 ConVar g_cv_gib_relay_weapon;
 ConVar g_cv_gib_relay_replenish_ammo;
+ConVar g_cv_gib_relay_prefix;
 
 public Plugin myinfo =
 {
@@ -74,18 +80,32 @@ void DisplayRelay(int iVictim = 0, int iAttacker = 0)
 		GetClientName(iAttacker, szAttackerName, sizeof(szAttackerName));
 	}
 
+	char szMessage[235];
+	char szPrefix[32];
+
+	g_cv_gib_relay_prefix.GetString(szPrefix, sizeof(szPrefix));
+
 	if (iVictim > 0 && iAttacker == 0)
 	{
-		PrintToChatAll("%s LOST the Relay.", szVictimName);
+		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>✖</font>",
+		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY);
 	}
 	else if (iVictim == 0 && iAttacker > 0)
 	{
-		PrintToChatAll("%s GOT the Relay FIRST.", szAttackerName);
+		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>✔</font>",
+		COLOR_SECONDARY, szPrefix, COLOR_HIGHLIGHT_HEX, szAttackerName, COLOR_PRIMARY);
 	}
 	else if (iVictim > 0 && iAttacker > 0)
 	{
-		PrintToChatAll("%s RELAYED the Weapon to %s.", szVictimName, szAttackerName);
+		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>➡</font> <font color='%s'>%s</font>",
+		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY, COLOR_HIGHLIGHT_HEX, szAttackerName);
 	}
+	else
+	{
+		return;
+	}
+
+	PrintCenterTextAll(szMessage);
 }
 
 /*
@@ -99,6 +119,8 @@ public void OnPluginStart()
   CreateConVar("gib_relay_weapon", "weapon_mag7", "Primary weapon to relay between Players.");
 	g_cv_gib_relay_replenish_ammo =
   CreateConVar("gib_relay_replenish_ammo", "1", "How many Rounds to replenish on Kill with Relay-Weapon.");
+	g_cv_gib_relay_prefix =
+  CreateConVar("gib_relay_prefix", "[SHOTGUN]", "Prefix to append to Alert-Messages.");
 
 	HookEvent("player_death", GameEvent_PlayerDeath);
 
