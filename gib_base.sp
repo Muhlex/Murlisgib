@@ -8,6 +8,7 @@
 #include <dynamic>
 
 #define RAILGUN_CYCLETIME 1.0
+#define RAILGUN_PRIMARY_CLIP_SIZE 1
 
 ConVar g_cv_mp_t_default_secondary;
 ConVar g_cv_mp_ct_default_secondary;
@@ -278,7 +279,7 @@ public Action Timer_RefillRailgun(Handle hTimer, int iWeapon)
 {
 	if (Weapon_IsValid(iWeapon))
 	{
-		Weapon_SetPrimaryClip(iWeapon, 1);
+		Weapon_SetPrimaryClip(iWeapon, RAILGUN_PRIMARY_CLIP_SIZE);
 	}
 }
 
