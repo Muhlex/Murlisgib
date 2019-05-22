@@ -89,16 +89,22 @@ void DisplayRelay(int iVictim = 0, int iAttacker = 0)
 	{
 		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>✖</font>",
 		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY);
+
+		Sound_PlayUIAll(SND_RELAY_LOST, SND_RELAY_LOST_VOLUME);
 	}
 	else if (iVictim == 0 && iAttacker > 0)
 	{
 		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>✔</font>",
 		COLOR_SECONDARY, szPrefix, COLOR_HIGHLIGHT_HEX, szAttackerName, COLOR_PRIMARY);
+
+		Sound_PlayUIAll(SND_RELAY_PASSED, SND_RELAY_PASSED_VOLUME);
 	}
 	else if (iVictim > 0 && iAttacker > 0)
 	{
 		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>➡</font> <font color='%s'>%s</font>",
 		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY, COLOR_HIGHLIGHT_HEX, szAttackerName);
+
+		Sound_PlayUIAll(SND_RELAY_PASSED, SND_RELAY_PASSED_VOLUME);
 	}
 	else
 	{
