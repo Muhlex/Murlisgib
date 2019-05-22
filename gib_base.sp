@@ -154,6 +154,7 @@ public void OnPluginStart()
 	HookEvent("weapon_fire",  GameEvent_WeaponFire);
 	HookEvent("player_death", GameEvent_PlayerDeath);
 	HookEvent("player_spawn", GameEvent_PlayerSpawn);
+	HookEvent("round_mvp",    GameEvent_RoundMVP, EventHookMode_Pre);
 
 	InitializeServer();
 
@@ -376,4 +377,12 @@ void RequestFrame_PlayerSpawn(int iUserID)
 		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 		UpdateScore(iClient, dGibPlayerData.GetInt("iKills"));
 	}
+}
+
+public Action GameEvent_RoundMVP(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	// Disable MVP Display on Round-End
+	SetEventInt(eEvent, "userid", 0);
+
+	return Plugin_Continue;
 }
