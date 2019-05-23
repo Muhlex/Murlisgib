@@ -22,9 +22,9 @@ ConVar g_cv_gib_health_railgun_only;
 
 public Plugin myinfo =
 {
-	name = "Murlisgib Regeneration",
+	name = "Murlisgib Health Restore",
 	author = "murlis",
-	description = "Health Regeneration on Kill.",
+	description = "Health on Kill.",
 	version = "1.0",
 	url = "http://steamcommunity.com/id/muhlex"
 };
