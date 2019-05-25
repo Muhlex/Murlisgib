@@ -106,11 +106,11 @@ int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
 
 	// GOTO Section: "prefabs"
 	if (!kvItemsGame.JumpToKey("prefabs"))
-		return -1;
+		return 0;
 
 	// GOTO First Section (inside root) (first weapon)
 	if (!kvConfig.GotoFirstSubKey())
-		return -1;
+		SetFailState("Plugin Config-File empty or corrupt!");
 
 	do // for every Section (inside root) (every weapon)
 	{
@@ -120,9 +120,10 @@ int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
 
 		// GOTO Section of current Weapon (inside "prefabs")
 		if (!kvItemsGame.JumpToKey(szWeaponName))
-			return -2;
+			SetFailState("Prefab %s could not be found.", szWeaponName);
+		// GOTO Section "attributes"
 		if (!kvItemsGame.JumpToKey("attributes"))
-			return -2;
+			SetFailState("Prefab %s does not have any changable attributes.", szWeaponName);
 
 		// GOTO First Stat (inside weapon)
 		if (!kvConfig.GotoFirstSubKey(false))
@@ -130,22 +131,30 @@ int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
 
 		do // for every Stat
 		{
+			// Get Key
 			kvConfig.GetSectionName(szAttributeName, sizeof(szAttributeName));
+			// Get Value
 			kvConfig.GetString(NULL_STRING, szAttributeValue, sizeof(szAttributeValue));
-			PrintToServer("%s: <%s> %s", szWeaponName, szAttributeName, szAttributeValue);
 
+			// Get old Value
 			kvItemsGame.GetString(szAttributeName, szAttributeValueOld, sizeof(szAttributeValueOld));
+
+			// Check if Value needs to be updated
 			if (!StrEqual(szAttributeValue, szAttributeValueOld))
 			{
+				// Update the Value
 				kvItemsGame.SetString(szAttributeName, szAttributeValue);
 				iUpdates++;
 			}
 
 		} while (kvConfig.GotoNextKey(false));
 
+		// GO BACK to Section "attributes"
 		kvItemsGame.GoBack();
+		// GO BACK to Section of current Weapon (inside "prefabs")
 		kvItemsGame.GoBack();
 
+		// GO BACK to weapon
 		kvConfig.GoBack();
 
 	} while (kvConfig.GotoNextKey());
@@ -186,10 +195,11 @@ public void OnPluginStart()
 
 	// DELETE DUPLICATE KEYS IN ATTRIBUTE SECTION
 	iDuplicates = DeleteDuplicateAttributes(kvItemsGame);
-	LogMessage("Deleted %i duplicate Item-Attributes.", iDuplicates);
 
 	// UPDATE WEAPON ATTRIBUTES TO REFLECT CONFIG
 	iUpdates = LoadWeaponStatsIntoAttributes(kvItemsGame, kvConfig);
+
+	LogMessage("Deleted %i duplicate Item-Attributes.", iDuplicates);
 	LogMessage("Updated %i Weapon-Stat-Attributes.", iUpdates);
 
 	if (iDuplicates > 0 || iUpdates > 0)
