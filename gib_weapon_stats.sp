@@ -50,53 +50,70 @@ void LoadKVFiles()
 	}
 }
 
-bool RemoveDuplicateStats()
+int RemoveDuplicateAttributes(KeyValues kv)
 {
-	char szTest[128];
+	char szSectionName[128];
+	StringMap smAttributes = new StringMap();
+	int iDeletions = 0;
 
-	// Go to prefabs section
-	if (!g_kvItemsGame.JumpToKey("prefabs"))
-		return false;
+	// GOTO Section: "prefabs"
+	if (!kv.JumpToKey("prefabs"))
+		return 0;
 
-	// Go to first section inside prefabs
-	if (!g_kvItemsGame.GotoFirstSubKey())
-		return false;
+	// GOTO First Section (inside "prefabs")
+	if (!kv.GotoFirstSubKey())
+		return 0;
 
-	do
+	do // for every Section (inside "prefabs")
 	{
-		// Try to go to attributes section, go back afterwards
-		if (g_kvItemsGame.JumpToKey("attributes"))
+		// GOTO Section: "attributes"
+		if (kv.JumpToKey("attributes"))
 		{
-			// CHECK FOR DUPLICATES
-
-			if (g_kvItemsGame.GotoFirstSubKey(false))
+			// GOTO First Section (inside "attributes")
+			if (kv.GotoFirstSubKey(false))
 			{
-				do
+				do // for every Key-Value Pair (inside "attributes"), treated as a section
 				{
-					g_kvItemsGame.SavePosition();
-					g_kvItemsGame.GetSectionName(szTest, sizeof(szTest));
+					kv.GetSectionName(szSectionName, sizeof(szSectionName));
+					PrintToServer("Section: %s", szSectionName);
 
-					if (g_kvItemsGame.JumpToKey(szTest, false)) // TODO: This just selects the GotoNextKey'd position again, not the one after :(
+					// Cache Attribute in StringMap. Returns false, if the Value already exists!
+					if (!smAttributes.SetValue(szSectionName, 1, false))
 					{
-						PrintToServer("DUPLICATE FOUND AT KEY: %s", szTest);
+						PrintToServer("FOUND DUPLICATE AT KEY: %s", szSectionName);
+
+						// GO BACK
+						kv.GoBack();
+						if (kv.DeleteKey(szSectionName))
+						{
+							PrintToServer("KEY DELETED");
+							iDeletions++;
+						}
+						kv.JumpToKey(szSectionName);
 					}
-					g_kvItemsGame.GoBack();
 
+				} while (kv.GotoNextKey(false));
 
-				} while (g_kvItemsGame.GotoNextKey(false));
-				g_kvItemsGame.GoBack();
+				// GO BACK from current attribute to "attributes"
+				kv.GoBack();
 			}
 
-			g_kvItemsGame.GoBack();
+			// Clear attributes List after full check of all attributes per prefab
+			smAttributes.Clear();
+			// GO BACK from Section: "attributes" to the Section INSIDE "prefabs"
+			kv.GoBack();
 		}
-		g_kvItemsGame.GetSectionName(szTest, sizeof(szTest));
-		PrintToServer("Checked for duplicates: %s", szTest);
-	} while (g_kvItemsGame.GotoNextKey());
 
-	// Rewind at the very end
-	g_kvItemsGame.Rewind();
+		kv.GetSectionName(szSectionName, sizeof(szSectionName));
+		PrintToServer("LAST SECTION WAS: %s", szSectionName);
+	} while (kv.GotoNextKey());
 
-	return true;
+	// REWIND Input Reference
+	kv.Rewind();
+
+	delete smAttributes;
+
+	return iDeletions;
 }
 
 /*
@@ -110,9 +127,12 @@ public void OnPluginStart()
 
 	LoadKVFiles();
 
-	RemoveDuplicateStats();
+	RemoveDuplicateAttributes(g_kvItemsGame);
 
-	PrintToServer("TEST DONE");
+	g_kvItemsGame.ExportToFile("_test.txt");
+
+	delete g_kvConfig;
+	delete g_kvItemsGame;
 }
 
 public void OnMapStart()
