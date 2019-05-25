@@ -9,9 +9,9 @@
 #include <murlisgib>
 
 #define PATH_ITEMS_GAME "scripts/items/items_game.txt"
+#define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_weapon_stats.cfg"
 
-KeyValues g_kvItemsGame;
-KeyValues g_kvConfig;
+bool g_bFileChanged = false;
 
 public Plugin myinfo =
 {
@@ -27,30 +27,7 @@ public Plugin myinfo =
  * Functions
  */
 
-void LoadKVFiles()
-{
-	char szConfigPath[PLATFORM_MAX_PATH];
-
-	// Build the path of the configuration file
-	BuildPath(Path_SM, szConfigPath, sizeof(szConfigPath), "configs/gib_weapon_stats.cfg");
-
-	g_kvConfig = new KeyValues("weapon_stats");
-	g_kvItemsGame = new KeyValues("items_game");
-
-	// Try to import gib_weapon_stats.cfg
-	if (!g_kvConfig.ImportFromFile(szConfigPath))
-	{
-		SetFailState("Unable to load config from path: %s", szConfigPath);
-	}
-
-  // Try to import items_game.txt
-	if (!g_kvItemsGame.ImportFromFile(PATH_ITEMS_GAME))
-	{
-		SetFailState("Unable to load items_game.txt from path: %s", PATH_ITEMS_GAME);
-	}
-}
-
-int RemoveDuplicateAttributes(KeyValues kv)
+int DeleteDuplicateAttributes(KeyValues kv)
 {
 	char szSectionName[128];
 	StringMap smAttributes = new StringMap();
@@ -82,13 +59,15 @@ int RemoveDuplicateAttributes(KeyValues kv)
 					{
 						PrintToServer("FOUND DUPLICATE AT KEY: %s", szSectionName);
 
-						// GO BACK
+						// GO BACK to "attributes"
 						kv.GoBack();
+						// DELETE KEY from within "attributes" (finds the FIRST one)
 						if (kv.DeleteKey(szSectionName))
 						{
 							PrintToServer("KEY DELETED");
 							iDeletions++;
 						}
+						// GO back to previous Key-Value Pair
 						kv.JumpToKey(szSectionName);
 					}
 
@@ -106,6 +85,7 @@ int RemoveDuplicateAttributes(KeyValues kv)
 
 		kv.GetSectionName(szSectionName, sizeof(szSectionName));
 		PrintToServer("LAST SECTION WAS: %s", szSectionName);
+
 	} while (kv.GotoNextKey());
 
 	// REWIND Input Reference
@@ -116,6 +96,67 @@ int RemoveDuplicateAttributes(KeyValues kv)
 	return iDeletions;
 }
 
+int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
+{
+	char szWeaponName[128];
+	char szAttributeName[128];
+	char szAttributeValue[128];
+	char szAttributeValueOld[128];
+	int iUpdates = 0;
+
+	// GOTO Section: "prefabs"
+	if (!kvItemsGame.JumpToKey("prefabs"))
+		return -1;
+
+	// GOTO First Section (inside root) (first weapon)
+	if (!kvConfig.GotoFirstSubKey())
+		return -1;
+
+	do // for every Section (inside root) (every weapon)
+	{
+		// Get Weapon Name
+		kvConfig.GetSectionName(szWeaponName, sizeof(szWeaponName));
+		Format(szWeaponName, sizeof(szWeaponName), "%s_prefab", szWeaponName);
+
+		// GOTO Section of current Weapon (inside "prefabs")
+		if (!kvItemsGame.JumpToKey(szWeaponName))
+			return -2;
+		if (!kvItemsGame.JumpToKey("attributes"))
+			return -2;
+
+		// GOTO First Stat (inside weapon)
+		if (!kvConfig.GotoFirstSubKey(false))
+			break;
+
+		do // for every Stat
+		{
+			kvConfig.GetSectionName(szAttributeName, sizeof(szAttributeName));
+			kvConfig.GetString(NULL_STRING, szAttributeValue, sizeof(szAttributeValue));
+			PrintToServer("%s: <%s> %s", szWeaponName, szAttributeName, szAttributeValue);
+
+			kvItemsGame.GetString(szAttributeName, szAttributeValueOld, sizeof(szAttributeValueOld));
+			if (!StrEqual(szAttributeValue, szAttributeValueOld))
+			{
+				kvItemsGame.SetString(szAttributeName, szAttributeValue);
+				iUpdates++;
+			}
+
+		} while (kvConfig.GotoNextKey(false));
+
+		kvItemsGame.GoBack();
+		kvItemsGame.GoBack();
+
+		kvConfig.GoBack();
+
+	} while (kvConfig.GotoNextKey());
+
+	// REWIND Input References
+	kvItemsGame.Rewind();
+	kvConfig.Rewind();
+
+	return iUpdates;
+}
+
 /*
  *
  * Public Forwards
@@ -123,20 +164,52 @@ int RemoveDuplicateAttributes(KeyValues kv)
 
 public void OnPluginStart()
 {
+	char szConfigPath[PLATFORM_MAX_PATH];
+	int iDuplicates = 0;
+	int iUpdates = 0;
+
 	//RegAdminCmd("gib_weapon_stats_reload", Command_WeaponStatsReload, ADMFLAG_ROOT, "gib_weapon_stats_reload");
 
-	LoadKVFiles();
+	KeyValues kvConfig =    new KeyValues("weapon_stats");
+	KeyValues kvItemsGame = new KeyValues("items_game");
 
-	RemoveDuplicateAttributes(g_kvItemsGame);
+	// Build the path of the Configuration File
+	BuildPath(Path_SM, szConfigPath, sizeof(szConfigPath), PATH_CONFIG);
 
-	g_kvItemsGame.ExportToFile("_test.txt");
+	// Try to import Configuration File
+	if (!kvConfig.ImportFromFile(szConfigPath))
+		SetFailState("Unable to load config from path: %s", szConfigPath);
 
-	delete g_kvConfig;
-	delete g_kvItemsGame;
+  // Try to import items_game.txt
+	if (!kvItemsGame.ImportFromFile(PATH_ITEMS_GAME))
+		SetFailState("Unable to load items_game.txt from path: %s", PATH_ITEMS_GAME);
+
+	// DELETE DUPLICATE KEYS IN ATTRIBUTE SECTION
+	iDuplicates = DeleteDuplicateAttributes(kvItemsGame);
+	LogMessage("Deleted %i duplicate Item-Attributes.", iDuplicates);
+
+	// UPDATE WEAPON ATTRIBUTES TO REFLECT CONFIG
+	iUpdates = LoadWeaponStatsIntoAttributes(kvItemsGame, kvConfig);
+	LogMessage("Updated %i Weapon-Stat-Attributes.", iUpdates);
+
+	if (iDuplicates > 0 || iUpdates > 0)
+	{
+		kvItemsGame.ExportToFile(PATH_ITEMS_GAME);
+		g_bFileChanged = true;
+	}
+	else
+	{
+		g_bFileChanged = false;
+	}
+
+	delete kvConfig;
+	delete kvItemsGame;
 }
 
 public void OnMapStart()
 {
+	if (g_bFileChanged)
+		ServerCommand("_restart");
 }
 
 /*
