@@ -7,8 +7,8 @@
 #include <smlib>
 #include <dynamic>
 
-#define RAILGUN_CYCLETIME 1.0
-#define RAILGUN_PRIMARY_CLIP_SIZE 1
+#define RAILGUN_DEFAULT_CYCLETIME 1.0
+#define RAILGUN_DEFAULT_PRIMARY_CLIP_SIZE 1
 
 ConVar g_cv_mp_t_default_secondary;
 ConVar g_cv_mp_ct_default_secondary;
@@ -138,6 +138,16 @@ void UpdateScore(int iClient, int iKills)
 {
 	Client_SetScore(iClient, iKills);
 	CS_SetClientContributionScore(iClient, iKills);
+}
+
+void RefillRailgun(int iWeapon)
+{
+	if (Weapon_IsValid(iWeapon))
+	{
+		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+		Weapon_SetPrimaryClip(iWeapon, dGibData.GetInt("iRailgunPrimaryClip", RAILGUN_DEFAULT_PRIMARY_CLIP_SIZE));
+	}
 }
 
 /*
@@ -271,16 +281,26 @@ public Action GameEvent_WeaponFire(Event eEvent, const char[] szName, bool bDont
 	// Check if the Railgun was used. If so, refill the Magazine
 	if (StrEqual(szWeaponName, szRailgun))
 	{
-		CreateTimer(RAILGUN_CYCLETIME - 0.25, Timer_RefillRailgun, iWeapon);
+		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+		// Get the Cycle-Time of the current Railgun. Reload just before it can fire again.
+		float fInterval = dGibData.GetFloat("fRailgunCycletime", RAILGUN_DEFAULT_CYCLETIME) - 0.25;
+
+		// Reload via Timer, or RequestFrame if the Timeframe is too small
+		if (fInterval >= 0.1)
+		{
+			CreateTimer(fInterval, Timer_RefillRailgun, iWeapon);
+		}
+		else
+		{
+			RequestFrame(RefillRailgun, iWeapon);
+		}
 	}
 }
 
 public Action Timer_RefillRailgun(Handle hTimer, int iWeapon)
 {
-	if (Weapon_IsValid(iWeapon))
-	{
-		Weapon_SetPrimaryClip(iWeapon, RAILGUN_PRIMARY_CLIP_SIZE);
-	}
+	RefillRailgun(iWeapon);
 }
 
 public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
