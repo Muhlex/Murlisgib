@@ -13,6 +13,8 @@
 
 bool g_bFileChanged = false;
 
+ConVar g_cv_gib_railgun;
+
 public Plugin myinfo =
 {
 	name = "Murlisgib Weapon Stats",
@@ -166,6 +168,54 @@ int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
 	return iUpdates;
 }
 
+int GetAttributeInt(KeyValues kv, const char[] szWeaponName, const char[] szAttributeName)
+{
+	char szWeaponNamePrefab[128];
+	int iReturn;
+
+	if (!kv.JumpToKey("prefabs"))
+		return -1;
+
+	// Suffix Weapon Name
+	Format(szWeaponNamePrefab, sizeof(szWeaponNamePrefab), "%s_prefab", szWeaponName);
+
+	if (!kv.JumpToKey(szWeaponNamePrefab))
+		return -1;
+
+	if (!kv.JumpToKey("attributes"))
+		return -1;
+
+	iReturn = kv.GetNum(szAttributeName, -1);
+
+	kv.Rewind();
+
+	return iReturn;
+}
+
+float GetAttributeFloat(KeyValues kv, const char[] szWeaponName, const char[] szAttributeName)
+{
+	char szWeaponNamePrefab[128];
+	float fReturn;
+
+	if (!kv.JumpToKey("prefabs"))
+		return -1.0;
+
+	// Suffix Weapon Name
+	Format(szWeaponNamePrefab, sizeof(szWeaponNamePrefab), "%s_prefab", szWeaponName);
+
+	if (!kv.JumpToKey(szWeaponNamePrefab))
+		return -1.0;
+
+	if (!kv.JumpToKey("attributes"))
+		return -1.0;
+
+	fReturn =  kv.GetFloat(szAttributeName, -1.0);
+
+	kv.Rewind();
+
+	return fReturn;
+}
+
 /*
  *
  * Public Forwards
@@ -216,18 +266,55 @@ public void OnPluginStart()
 	delete kvItemsGame;
 }
 
+public void OnAllPluginsLoaded()
+{
+	// Hook Railgun Weapon Change
+	g_cv_gib_railgun = FindConVar("gib_railgun");
+	g_cv_gib_railgun.AddChangeHook(ConVarChange_gib_railgun);
+
+	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+	// Create Member for Railgun Cycletime
+	dGibData.SetFloat("fRailgunCycletime", 0.0);
+	// Create Member for Railgun Primary Clip
+	dGibData.SetInt("iRailgunPrimaryClip", 0);
+}
+
 public void OnMapStart()
 {
+	// Restart the Server, if items_game.txt changed
 	if (g_bFileChanged)
 		ServerCommand("_restart");
 }
 
 /*
  *
- * Game-Event Hooks
+ * ConVar Hooks
  */
 
-/*
- *
- * Other Hooks
- */
+public void ConVarChange_gib_railgun(ConVar cvConvar, char[] szOldValue, char[] szNewValue)
+{
+	KeyValues kvItemsGame = new KeyValues("items_game");
+
+	char szRailgun[33];
+	cvConvar.GetString(szRailgun, sizeof(szRailgun));
+
+	// Try to import items_game.txt
+	if (!kvItemsGame.ImportFromFile(PATH_ITEMS_GAME))
+		SetFailState("Unable to load items_game.txt from path: %s", PATH_ITEMS_GAME);
+
+	// Get Railgun's Attributes
+	float fCycletime = GetAttributeFloat(kvItemsGame, szRailgun, "cycletime");
+	int   iPrimaryClip = GetAttributeInt(kvItemsGame, szRailgun, "primary clip size");
+
+	delete kvItemsGame;
+
+	if (fCycletime >= 0.0 && iPrimaryClip >= 0)
+	{
+		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+		// Set Member for Railgun Cycletime
+		dGibData.SetFloat("fRailgunCycletime", fCycletime);
+		// Set Member for Railgun Primary Clip
+		dGibData.SetInt("iRailgunPrimaryClip", iPrimaryClip);
+	}
+}
