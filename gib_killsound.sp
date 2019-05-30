@@ -117,7 +117,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			{
 				case 1: szSound = SND_HEADSHOT_1;
 				case 2: szSound = SND_HEADSHOT_2;
-				case 3: szSound = SND_HEADSHOT_2;
+				case 3: szSound = SND_HEADSHOT_3;
 			}
 
 			Sound_PlayUIClient(iAttacker, szSound, SND_HEADSHOT_VOLUME);
