@@ -7,6 +7,8 @@
 #include <smlib>
 #include <dynamic>
 
+#include <murlisgib>
+
 #define RAILGUN_DEFAULT_CYCLETIME 1.0
 #define RAILGUN_DEFAULT_PRIMARY_CLIP_SIZE 1
 
@@ -140,16 +142,6 @@ void UpdateScore(int iClient, int iKills)
 	CS_SetClientContributionScore(iClient, iKills);
 }
 
-void RefillRailgun(int iWeapon)
-{
-	if (Weapon_IsValid(iWeapon))
-	{
-		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
-
-		Weapon_SetPrimaryClip(iWeapon, dGibData.GetInt("iRailgunPrimaryClip", RAILGUN_DEFAULT_PRIMARY_CLIP_SIZE));
-	}
-}
-
 /*
  *
  * Public Forwards
@@ -162,10 +154,10 @@ public void OnPluginStart()
 
 	HookEvent("round_start",  GameEvent_RoundStart, EventHookMode_PostNoCopy);
 	HookEvent("round_end",    GameEvent_RoundEnd);
-	HookEvent("weapon_fire",  GameEvent_WeaponFire);
 	HookEvent("player_death", GameEvent_PlayerDeath);
 	HookEvent("player_spawn", GameEvent_PlayerSpawn);
 	HookEvent("round_mvp",    GameEvent_RoundMVP, EventHookMode_Pre);
+	AddTempEntHook("Shotgun Shot", TEHook_FireBullets);
 
 	InitializeServer();
 
@@ -220,9 +212,34 @@ public void ConVarChange_gib_railgun(ConVar cvConvar, char[] szOldValue, char[] 
 	char szRailgun[33];
 	cvConvar.GetString(szRailgun, sizeof(szRailgun));
 
-	g_cv_gib_railgun.SetString(szRailgun);
-	g_cv_mp_t_default_secondary.SetString(szRailgun);
-	g_cv_mp_ct_default_secondary.SetString(szRailgun);
+	if (cvConvar != g_cv_gib_railgun)
+		g_cv_gib_railgun.SetString(szRailgun);
+
+	if (cvConvar != g_cv_mp_t_default_secondary)
+		g_cv_mp_t_default_secondary.SetString(szRailgun);
+
+	if (cvConvar != g_cv_mp_ct_default_secondary)
+		g_cv_mp_ct_default_secondary.SetString(szRailgun);
+
+	// Give Players new Railgun-Weapon whenever it changes
+	if (cvConvar == g_cv_gib_railgun)
+	{
+		LOOP_CLIENTS (iClient, CLIENTFILTER_ALIVE)
+		{
+			int iWeapon = GetPlayerWeaponSlot(iClient, 1);
+			char szWeaponName[33];
+
+			// Get Weapon's Name if the Weapon exists
+			if (Entity_GetWeaponName(iWeapon, szWeaponName, sizeof(szWeaponName)))
+			{
+				if (StrEqual(szOldValue, szWeaponName))
+				{
+					RemovePlayerItem(iClient, iWeapon);
+					Client_GiveWeapon(iClient, szNewValue);
+				}
+			}
+		}
+	}
 
 	return;
 }
@@ -264,43 +281,6 @@ public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBr
 
 		dGibData.SetBool("bRoundInProgress", false);
 	}
-}
-
-public Action GameEvent_WeaponFire(Event eEvent, const char[] szName, bool bDontBroadcast)
-{
-	int iClient = GetClientOfUserId(GetEventInt(eEvent, "userid"));
-	int iWeapon = Client_GetActiveWeapon(iClient);
-
-	char szWeaponName[33];
-	GetEventString(eEvent, "weapon", szWeaponName, sizeof(szWeaponName));
-
-	// Get Railgun Weapon-Type
-	char szRailgun[33];
-	g_cv_gib_railgun.GetString(szRailgun, sizeof(szRailgun));
-
-	// Check if the Railgun was used. If so, refill the Magazine
-	if (StrEqual(szWeaponName, szRailgun))
-	{
-		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
-
-		// Get the Cycle-Time of the current Railgun. Reload just before it can fire again.
-		float fInterval = dGibData.GetFloat("fRailgunCycletime", RAILGUN_DEFAULT_CYCLETIME) - 0.25;
-
-		// Reload via Timer, or RequestFrame if the Timeframe is too small
-		if (fInterval >= 0.1)
-		{
-			CreateTimer(fInterval, Timer_RefillRailgun, iWeapon);
-		}
-		else
-		{
-			RequestFrame(RefillRailgun, iWeapon);
-		}
-	}
-}
-
-public Action Timer_RefillRailgun(Handle hTimer, int iWeapon)
-{
-	RefillRailgun(iWeapon);
 }
 
 public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
@@ -386,6 +366,23 @@ public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDon
 	int iClient = GetClientOfUserId(GetEventInt(eEvent, "userid"));
 
 	RequestFrame(RequestFrame_PlayerSpawn, GetClientUserId(iClient)); // NOTICE: This might leave open a single Frame on which Kills are decremented by one
+
+	// Check if a replacement Weapon was given at Spawn. (E.g. USP-S instead of P2000)
+	// If so, equip the Player with the correct Weapon
+	char szWeaponName[33], szRailgunName[33];
+	int iWeapon = GetPlayerWeaponSlot(iClient, 1); // Secondary Slot
+
+	if (Weapon_IsValid(iWeapon))
+	{
+		Entity_GetWeaponName(iWeapon, szWeaponName, sizeof(szWeaponName));
+		g_cv_gib_railgun.GetString(szRailgunName, sizeof(szRailgunName));
+
+		if (!StrEqual(szWeaponName, szRailgunName))
+		{
+			RemovePlayerItem(iClient, iWeapon);
+			Client_GiveWeapon(iClient, szRailgunName);
+		}
+	}
 }
 
 void RequestFrame_PlayerSpawn(int iUserID)
@@ -404,6 +401,38 @@ public Action GameEvent_RoundMVP(Event eEvent, const char[] szName, bool bDontBr
 {
 	// Disable MVP Display on Round-End
 	SetEventInt(eEvent, "userid", 0);
+
+	return Plugin_Continue;
+}
+
+/*
+ *
+ * Other Hooks
+ */
+
+public Action TEHook_FireBullets(const char[] szTE_Name, const int[] iPlayers, int iNumClients, float fDelay)
+{
+	int iClient = TE_ReadNum("m_iPlayer") + 1;
+
+	int iWeapon = Client_GetActiveWeapon(iClient);
+	// Get Weapon Name
+	char szWeaponName[33];
+	GetClientWeapon(iClient, szWeaponName, sizeof(szWeaponName));
+
+	// Get Railgun-Weapon Name
+	char szRailgun[33];
+	g_cv_gib_railgun.GetString(szRailgun, sizeof(szRailgun));
+
+	// Check if Railgun was shot
+	if (StrEqual(szWeaponName, szRailgun))
+	{
+		if (Weapon_IsValid(iWeapon))
+		{
+			// Restore Bullet
+			int iClip = Weapon_GetPrimaryClip(iWeapon);
+			Weapon_SetPrimaryClip(iWeapon, ++iClip);
+		}
+	}
 
 	return Plugin_Continue;
 }
