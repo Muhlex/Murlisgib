@@ -153,7 +153,7 @@ public void OnPluginStart()
 	g_cv_gib_score_suicide_penalty = CreateConVar("gib_score_suicide_penalty", "0", "Value to decrease/increase Player Kill-Count on suicide.");
 
 	HookEvent("round_start",  GameEvent_RoundStart, EventHookMode_PostNoCopy);
-	HookEvent("round_end",    GameEvent_RoundEnd);
+	//HookEvent("round_end",    GameEvent_RoundEnd); // Using CS_OnTerminateRound instead
 	HookEvent("player_death", GameEvent_PlayerDeath);
 	HookEvent("player_spawn", GameEvent_PlayerSpawn);
 	HookEvent("round_mvp",    GameEvent_RoundMVP, EventHookMode_Pre);
@@ -264,23 +264,6 @@ public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDont
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 	dGibData.SetBool("bRoundInProgress", true);
-}
-
-public Action GameEvent_RoundEnd(Event eEvent, const char[] szName, bool bDontBroadcast)
-{
-	// Get Reason for the Round ending
-	int iReason = GetEventInt(eEvent, "reason");
-	// Define GameStart Reason
-	int iReason_GameStart = view_as<int>(CSRoundEnd_GameStart) + 1;
-
-	// Check for an actual Round-End; Exclude the Pre-Game ending
-	if (iReason != iReason_GameStart)
-	{
-		// Save if Round is no longer in Progress to Server Data Object
-		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
-
-		dGibData.SetBool("bRoundInProgress", false);
-	}
 }
 
 public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
@@ -433,6 +416,23 @@ public Action TEHook_FireBullets(const char[] szTE_Name, const int[] iPlayers, i
 			int iClip = Weapon_GetPrimaryClip(iWeapon);
 			Weapon_SetPrimaryClip(iWeapon, ++iClip);
 		}
+	}
+
+	return Plugin_Continue;
+}
+
+public Action CS_OnTerminateRound(float &fDelay, CSRoundEndReason &csrReason)
+{
+	// Check for an actual Round-End; Exclude the Pre-Game ending
+	if (csrReason != CSRoundEnd_GameStart)
+	{
+		// Save if Round is no longer in Progress to Server Data Object
+		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+		dGibData.SetBool("bRoundInProgress", false);
+
+		fDelay = 1.0;
+		return Plugin_Changed;
 	}
 
 	return Plugin_Continue;
