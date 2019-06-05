@@ -87,21 +87,21 @@ void DisplayRelay(int iVictim = 0, int iAttacker = 0)
 
 	if (iVictim > 0 && iAttacker == 0)
 	{
-		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>✖</font>",
+		Format(szMessage, sizeof(szMessage), "<font color='%s'>[%s]</font> <font color='%s'>%s</font> <font color='%s'>✖</font>",
 		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY);
 
 		Sound_PlayUIAll(SND_RELAY_LOST, SND_RELAY_LOST_VOLUME);
 	}
 	else if (iVictim == 0 && iAttacker > 0)
 	{
-		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>✔</font>",
+		Format(szMessage, sizeof(szMessage), "<font color='%s'>[%s]</font> <font color='%s'>%s</font> <font color='%s'>✔</font>",
 		COLOR_SECONDARY, szPrefix, COLOR_HIGHLIGHT_HEX, szAttackerName, COLOR_PRIMARY);
 
 		Sound_PlayUIAll(SND_RELAY_PASSED, SND_RELAY_PASSED_VOLUME);
 	}
 	else if (iVictim > 0 && iAttacker > 0)
 	{
-		Format(szMessage, sizeof(szMessage), "<font color='%s'>%s</font> <font color='%s'>%s</font> <font color='%s'>➡</font> <font color='%s'>%s</font>",
+		Format(szMessage, sizeof(szMessage), "<font color='%s'>[%s]</font> <font color='%s'>%s</font> <font color='%s'>➡</font> <font color='%s'>%s</font>",
 		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY, COLOR_HIGHLIGHT_HEX, szAttackerName);
 
 		Sound_PlayUIAll(SND_RELAY_PASSED, SND_RELAY_PASSED_VOLUME);
@@ -126,7 +126,7 @@ public void OnPluginStart()
 	g_cv_gib_relay_replenish_ammo =
   CreateConVar("gib_relay_replenish_ammo", "1", "How many Rounds to replenish on Kill with Relay-Weapon.");
 	g_cv_gib_relay_prefix =
-  CreateConVar("gib_relay_prefix", "[SHOTGUN]", "Prefix to append to Alert-Messages.");
+  CreateConVar("gib_relay_prefix", "SHOTGUN", "Prefix to append to Alert-Messages.");
 
 	HookEvent("player_death", GameEvent_PlayerDeath);
 
