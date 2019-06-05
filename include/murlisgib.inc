@@ -5,21 +5,114 @@
 
 #include <sourcemod>
 #include <sdktools>
+#include <cstrike>
+#include <smlib>
 #include <dynamic>
 
 /*
  *
- * All-Purpose Functions
+ * Entity Functions
  */
 
-stock void Sound_PlayUIClient(int iClient, char[] szSound, float fVolume)
+stock bool Entity_GetWeaponName(int iEntity, char[] szWeaponName, int iMaxlength)
+{
+	if (!Weapon_IsValid(iEntity))
+	{
+		return false;
+	}
+
+	int iItemDefIndex = GetEntProp(iEntity, Prop_Send, "m_iItemDefinitionIndex");
+
+	CS_WeaponIDToAlias(CS_ItemDefIndexToID(iItemDefIndex), szWeaponName, iMaxlength);
+
+	Format(szWeaponName, iMaxlength, "weapon_%s", szWeaponName);
+
+	return true;
+}
+
+stock bool Entity_CreateForClientByName(int iClient, const char[] szEntityName)
+{
+	// This function spawns a weapon at the specified Client's Position. Might be possible to do this in a cleaner way.
+	float fPos[3];
+	GetClientAbsOrigin(iClient, fPos);
+
+	int iEntity = CreateEntityByName(szEntityName);
+	if (iEntity != INVALID_ENT_REFERENCE)
+	{
+		Entity_SetOwner(iEntity, iClient);
+		TeleportEntity(iEntity, fPos, NULL_VECTOR, NULL_VECTOR);
+		DispatchSpawn(iEntity);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/*
+ *
+ * Sound Functions
+ */
+
+stock void Sound_PlayUIClient(int iClient, const char[] szSound, float fVolume)
 {
 	EmitSoundToClient(iClient, szSound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, fVolume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
 }
 
-stock void Sound_PlayUIAll(char[] szSound, float fVolume)
+stock void Sound_PlayUIAll(const char[] szSound, float fVolume)
 {
 	EmitSoundToAll(szSound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, fVolume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
+}
+
+/*
+ *
+ * Temp-Ent Functions
+ */
+
+stock void TE_EffectDispatch(const char[] szEffect, const float vOrigin[3], const float vStart[3], const float vAngles[3] = NULL_VECTOR)
+{
+	TE_Start("EffectDispatch");
+	TE_WriteFloatArray("m_vOrigin.x", vOrigin, 3);
+	TE_WriteFloatArray("m_vStart.x", vStart, 3);
+	TE_WriteVector("m_vAngles", vAngles);
+	TE_WriteNum("m_nHitBox", GetParticleEffectIndex(szEffect));
+	TE_WriteNum("m_iEffectName", GetEffectIndex("ParticleEffect"));
+	TE_WriteNum("m_fFlags", 0);
+}
+
+stock int GetParticleEffectIndex(const char[] szEffectName)
+{
+	static int iTable = INVALID_STRING_TABLE;
+
+	if (iTable == INVALID_STRING_TABLE)
+		iTable = FindStringTable("ParticleEffectNames");
+
+	int iIndex = FindStringIndex(iTable, szEffectName);
+
+	if (iIndex != INVALID_STRING_INDEX)
+	{
+		return iIndex;
+	}
+
+	return 0;
+}
+
+stock int GetEffectIndex(const char[] szEffectName)
+{
+	static int iTable = INVALID_STRING_TABLE;
+
+	if (iTable == INVALID_STRING_TABLE)
+		iTable = FindStringTable("EffectDispatch");
+
+	int iIndex = FindStringIndex(iTable, szEffectName);
+
+	if (iIndex != INVALID_STRING_INDEX)
+	{
+		return iIndex;
+	}
+
+	return 0;
 }
 
 /*
