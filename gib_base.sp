@@ -235,7 +235,7 @@ public void ConVarChange_gib_railgun(ConVar cvConvar, char[] szOldValue, char[] 
 				if (StrEqual(szOldValue, szWeaponName))
 				{
 					RemovePlayerItem(iClient, iWeapon);
-					Client_GiveWeapon(iClient, szNewValue);
+					Entity_CreateForClientByName(iClient, szNewValue);
 				}
 			}
 		}
@@ -380,7 +380,7 @@ public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDon
 		if (!StrEqual(szWeaponName, szRailgunName))
 		{
 			RemovePlayerItem(iClient, iWeapon);
-			Client_GiveWeapon(iClient, szRailgunName);
+			Entity_CreateForClientByName(iClient, szRailgunName);
 		}
 	}
 }
@@ -401,6 +401,7 @@ public Action GameEvent_RoundMVP(Event eEvent, const char[] szName, bool bDontBr
 {
 	// Disable MVP Display on Round-End
 	SetEventInt(eEvent, "userid", 0);
+	SetEventInt(eEvent, "reason", 0);
 
 	return Plugin_Continue;
 }
