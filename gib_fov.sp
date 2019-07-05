@@ -22,7 +22,7 @@ public void OnPluginStart()
 	char szFOV[4];
 	IntToString(g_iFOV, szFOV, sizeof(szFOV));
 
-	g_cv_fov = CreateConVar("gib_fov", szFOV, "Sets all Player's FOV on next Spawn.");
+	g_cv_gib_fov = CreateConVar("gib_fov", szFOV, "Sets all Player's FOV on next Spawn.");
 
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookConVarChange(g_cv_gib_fov, ConVarChange_FOV);
