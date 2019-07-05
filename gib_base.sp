@@ -430,9 +430,6 @@ public Action CS_OnTerminateRound(float &fDelay, CSRoundEndReason &csrReason)
 		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 		dGibData.SetBool("bRoundInProgress", false);
-
-		fDelay = 1.0;
-		return Plugin_Changed;
 	}
 
 	return Plugin_Continue;

@@ -2,7 +2,7 @@
 #include <sdkhooks>
 #include <sdktools>
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
 	name = "Gibs",
 	author = "murlis",
@@ -59,7 +59,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 
 	if (!IsValidEntity(client))
 		return;
-	
+
 	// Remove Ragdoll
 	int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
 
@@ -131,7 +131,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 		}
 
 		int cpoint20 = CreateEntityByName("info_particle_system");
-		
+
 		DispatchKeyValue(cpoint20, "start_active", "0");
 
 		DispatchKeyValue(cpoint20, "targetname", helperParticleName);
@@ -162,7 +162,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 		effect = "gib_special_antlers";
 	else if (StrEqual(steamId, "STEAM_1:0:32739930")) // melvin
 		effect = "gib_special_coke";
-	else if (StrEqual(steamId, "STEAM_1:1:111699471")) // Cute Goat 
+	else if (StrEqual(steamId, "STEAM_1:1:111699471")) // Cute Goat
 		effect = "gib_special_sheep";
 
 	if (effect[0]) // if effect is not empty
