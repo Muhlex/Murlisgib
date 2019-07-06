@@ -70,6 +70,7 @@ void InitializePlayer(int iClient)
 
 	// Initialize Client Object Members
 	dGibPlayerData.SetInt("iKills", 0);
+	dGibPlayerData.SetInt("iHeadshotKills", 0);
 
 	// Store Murlisgib Settings in PlayerSettings Object
 	dPlayerSettings.SetDynamic("gib_settings", dGibPlayerSettings);
@@ -134,6 +135,7 @@ void ResetPlayer(int iClient)
 	// Reset Kill-Count
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 	dGibPlayerData.SetInt("iKills", 0);
+	dGibPlayerData.SetInt("iHeadshotKills", 0);
 }
 
 void UpdateScore(int iClient, int iKills)
@@ -270,6 +272,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 {
 	int iAttacker = GetClientOfUserId(GetEventInt(eEvent, "attacker"));
 	int iVictim = GetClientOfUserId(GetEventInt(eEvent, "userid"));
+	bool bHeadshot = GetEventBool(eEvent, "headshot");
 
 	// Exclude invalid Cases where Victim is no longer ingame
 	if (!Client_IsIngame(iVictim))
@@ -301,7 +304,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		}
 
 		// Send current Kills and Points to the Scoreboard
-		// This needs to be done instantly after death, as well as on Respawn
+		// This needs to always be done instantly after death, as well as on Respawn
 		UpdateScore(iVictim, iVictimKills);
 	}
 	else if (Client_IsIngame(iAttacker))
@@ -309,6 +312,13 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		// Update Attacker's Kill-Count
 		int iAttackerKills = dGibAttackerData.GetInt("iKills");
 		dGibAttackerData.SetInt("iKills", ++iAttackerKills);
+
+		// Update Attacker's Headshot-Kill-Count
+		if (bHeadshot)
+		{
+			int iAttackerHeadshotKills = dGibAttackerData.GetInt("iHeadshotKills");
+			dGibAttackerData.SetInt("iHeadshotKills", ++iAttackerHeadshotKills);
+		}
 
 		// Get currently winning Player
 		int iWinner = dGibData.GetInt("iWinner", 0);
