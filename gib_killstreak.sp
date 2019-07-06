@@ -221,8 +221,6 @@ public void DynamicChange_GibPlayerData(Dynamic dGibPlayerData, DynamicOffset do
 		// Increase Killstreak by one
 		int iKillstreak  = dGibPlayerData.GetInt("iKillstreak");
 		dGibPlayerData.SetInt("iKillstreak", ++iKillstreak);
-		PrintToChatAll("Client %i Killstreak: %i", iClient, iKillstreak);
-		PrintToChatAll("Client %i Kills previously: %i | Kills: %i", iClient, iKillsPre[iClient], iKills);
 
 		PrintKillstreak(iClient, iKillstreak);
 	}
