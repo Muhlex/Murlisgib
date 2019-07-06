@@ -9,9 +9,6 @@
 
 #include <murlisgib>
 
-#define RAILGUN_DEFAULT_CYCLETIME 1.0
-#define RAILGUN_DEFAULT_PRIMARY_CLIP_SIZE 1
-
 ConVar g_cv_mp_t_default_secondary;
 ConVar g_cv_mp_ct_default_secondary;
 ConVar g_cv_mp_teamname_1;
