@@ -43,12 +43,15 @@ public Plugin myinfo =
 void InitializePlayer(int iClient)
 {
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+	Dynamic dGibData       = Dynamic.GetSettings().GetDynamic("gib_data");
 
 	// Create Member for current Killstreak-Count
 	dGibPlayerData.SetInt("iKillstreak", 0);
 
 	// Hook Changes of Player gib_data Object
 	dGibPlayerData.HookChanges(DynamicChange_GibPlayerData);
+	// Hook Changes of Server gib_data Object
+	dGibData.HookChanges(DynamicChange_GibData);
 }
 
 void PrintKillstreak(int iClient, int iKillstreak)
@@ -218,9 +221,28 @@ public void DynamicChange_GibPlayerData(Dynamic dGibPlayerData, DynamicOffset do
 		// Increase Killstreak by one
 		int iKillstreak  = dGibPlayerData.GetInt("iKillstreak");
 		dGibPlayerData.SetInt("iKillstreak", ++iKillstreak);
+		PrintToChatAll("Client %i Killstreak: %i", iClient, iKillstreak);
+		PrintToChatAll("Client %i Kills previously: %i | Kills: %i", iClient, iKillsPre[iClient], iKills);
 
 		PrintKillstreak(iClient, iKillstreak);
 	}
 
 	iKillsPre[iClient] = iKills;
+}
+
+public void DynamicChange_GibData(Dynamic dGibData, DynamicOffset doOffset, const char[] szMember, Dynamic_MemberType dmtType)
+{
+	// Only Hook Changes to Round State
+	if (StrEqual(szMember, "bRoundInProgress"))
+	{
+		// If Round started
+		if (dGibData.GetBool(szMember))
+		{
+			LOOP_CLIENTS (iClient, CLIENTFILTER_INGAME)
+			{
+				Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+				dGibPlayerData.SetInt("iKillstreak", 0);
+			}
+		}
+	}
 }
