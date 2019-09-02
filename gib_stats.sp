@@ -28,16 +28,75 @@ public Plugin myinfo =
 
 /*
  *
+ * Functions
+ */
+
+void GetHighestValues(const values[], int numValues, output[], int numOutputValues)
+{
+	for (int i = 0; i < numOutputValues; i++)
+	{
+		for (int j = 0; j < numValues; j++)
+		{
+			if (i == 0)
+			{
+				if (output[i] < values[j])
+				{
+					output[i] = values[j];
+				}
+			}
+			else
+			{
+				if (output[i] < values[j] < output[i-1])
+				{
+					output[i] = values[j];
+				}
+			}
+		}
+	}
+}
+
+void StatsTest()
+{
+	int playerKills[MAXPLAYERS + 1];
+
+	int topKills[3];
+
+	LOOP_CLIENTS (iClient, CLIENTFILTER_NOSPECTATORS)
+	{
+		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+
+		playerKills[iClient] = dGibPlayerData.GetInt("iKills", 0);
+	}
+
+	int test[] = {12, 24, 21, 6, 21};
+
+	GetHighestValues(test, 5, topKills, 3);
+
+	PrintToServer("%i, %i, %i", topKills[0], topKills[1], topKills[2]);
+
+
+}
+
+/*
+ *
  * Public Forwards
  */
 
+//wrong place this is
+public Action Command_Stats(int iClient, int iArgs)
+{
+	StatsTest();
+}
+
 public void OnPluginStart()
 {
-  g_cv_gib_stats_enable     = CreateConVar("gib_stats_enable", "1", "Enable Stat-Display on Round End.");
-  g_cv_gib_stats_kills      = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
-  g_cv_gib_stats_headshots  = CreateConVar("gib_stats_headshots", "1", "Display highest Railgun Headshot-Counts.");
-  g_cv_gib_stats_killstreak = CreateConVar("gib_stats_killstreak", "1", "Display highest Killstreaks.");
-  g_cv_gib_stats_relaytime  = CreateConVar("gib_stats_relaytime", "1", "Display Times of Players who held the relay Weapon longest.");
+	RegAdminCmd("sss", Command_Stats, ADMFLAG_ROOT);
+
+	g_cv_gib_stats_enable     = CreateConVar("gib_stats_enable", "1", "Enable Stat-Display on Round End.");
+	g_cv_gib_stats_kills      = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
+	g_cv_gib_stats_headshots  = CreateConVar("gib_stats_headshots", "1", "Display highest Railgun Headshot-Counts.");
+	g_cv_gib_stats_killstreak = CreateConVar("gib_stats_killstreak", "1", "Display highest Killstreaks.");
+	g_cv_gib_stats_relaytime  = CreateConVar("gib_stats_relaytime", "1", "Display Times of Players who held the relay Weapon longest.");
 }
 
 public void OnConfigsExecuted()
