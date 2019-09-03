@@ -2,20 +2,31 @@
 #pragma newdecls required
 
 #include <sourcemod>
+#include <sdktools>
+#include <cstrike>
 
 #include <smlib>
 #include <dynamic>
 
-#include <cstrike>
+#include <murlisgib>
 
-ConVar g_cv_mp_round_restart_delay;
-ConVar g_cv_gib_relay_prefix;
+#define COLOR_HIGHLIGHT_HEX "#E4AE39"
+#define COLOR_SHADE1_HEX "#B0C3D9"
+#define COLOR_SHADE2_HEX "#75818E"
+
+#define STAT_COUNT 3
+#define STAT_DISPLAY_TIME 4.0
+
+bool g_bIsLastRound = false;
+
+ConVar g_cv_mp_maxrounds;
+//ConVar g_cv_gib_relay_prefix;
 
 ConVar g_cv_gib_stats_enable;
 ConVar g_cv_gib_stats_kills;
 ConVar g_cv_gib_stats_headshots;
 ConVar g_cv_gib_stats_killstreak;
-ConVar g_cv_gib_stats_relaytime;
+//ConVar g_cv_gib_stats_relaytime;
 
 public Plugin myinfo =
 {
@@ -69,7 +80,6 @@ int GetPlacementNames(const values[], any checkForValue, char[] szOutput, int iO
 			if (!StrEqual(szOutput, ""))
 			{
 				StrCat(szOutput, iOutputLength, ", ");
-				PrintToServer("this happened");
 			}
 			StrCat(szOutput, iOutputLength, szClientName);
 
@@ -80,16 +90,21 @@ int GetPlacementNames(const values[], any checkForValue, char[] szOutput, int iO
 	return iNameCount;
 }
 
-void GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[] szOutput, int iOutputLength) // only works with ints for now
+bool GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[] szOutput, int iOutputLength) // only works with ints for now
 {
-	// Add Caption to Output
-	StrCat(szOutput, iOutputLength, szCaption);
-
 	int iTopValues[3];
 	GetHighestValues(values, iNumValues, iTopValues, 3);
 
+	// Check if nobody made any progress to this stat
+	if (iTopValues[0] <= 0)
+	{
+		return false;
+	}
+
+	// Add Caption to Output
+	StrCat(szOutput, iOutputLength, szCaption);
+
 	char szSingleLine[512];
-	char szSingleLineNames[512];
 
 	for (int iPlace = 0; iPlace < 3; iPlace++)
 	{
@@ -97,47 +112,92 @@ void GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[
 		{
 			// Create a single line of the output string
 
-			// Add line highlights (darker 2nd & 3rd Place)
+			// Retrieve name list
+			GetPlacementNames(values, iTopValues[iPlace], szSingleLine, sizeof(szSingleLine));
+			// Add values to name list
+			Format(szSingleLine, sizeof(szSingleLine), "<br>[%i] %s", iTopValues[iPlace], szSingleLine);
+
+			// Prepend line highlight-HTML (darker 2nd & 3rd Place)
 			if (iPlace == 1)
 			{
-				StrCat(szSingleLine, sizeof(szSingleLine), "<font color='#B2B2B2'>");
+				Format(szSingleLine, sizeof(szSingleLine), "<font color='%s'>%s", COLOR_SHADE1_HEX, szSingleLine);
 			}
 			else if (iPlace >= 2)
 			{
-				StrCat(szSingleLine, sizeof(szSingleLine), "<font color='#8C8C8C'>");
+				Format(szSingleLine, sizeof(szSingleLine), "<font color='%s'>%s", COLOR_SHADE2_HEX, szSingleLine);
 			}
-
-			// Retrieve name list
-			GetPlacementNames(values, iTopValues[iPlace], szSingleLineNames, sizeof(szSingleLineNames));
-			// Concatenate values and names
-			Format(szSingleLine, sizeof(szSingleLine), "<br>[%i] %s", iTopValues[iPlace], szSingleLineNames);
 
 			// Add single line to the output string
 			StrCat(szOutput, iOutputLength, szSingleLine);
 
 			// Clear current line strings
 			Format(szSingleLine, sizeof(szSingleLine), "");
-			Format(szSingleLineNames, sizeof(szSingleLineNames), "");
 		}
 	}
+
+	return true;
 }
 
-void StatsTest()
+float DisplayStats()
 {
 	int iPlayerKills[MAXPLAYERS + 1];
+	int iPlayerHeadshotKills[MAXPLAYERS + 1];
+	int iPlayerHighestKillstreak[MAXPLAYERS + 1];
 
 	LOOP_CLIENTS (iClient, CLIENTFILTER_NOSPECTATORS)
 	{
 		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 
 		iPlayerKills[iClient] = dGibPlayerData.GetInt("iKills", 0);
+		iPlayerHeadshotKills[iClient] = dGibPlayerData.GetInt("iHeadshotKills", 0);
+		iPlayerHighestKillstreak[iClient] = dGibPlayerData.GetInt("iHighestKillstreak", 0);
 	}
 
-	char test[1024];
+	char szHeadline[128];
+	bool bShowStat[STAT_COUNT];
+	char szStatsStrings[STAT_COUNT][1024];
 
-	GenerateStatsString(iPlayerKills, sizeof(iPlayerKills), "<font color='#A3FC85'>KILLS</font>", test, sizeof(test));
-	PrintToServer("%s", test);
-	PrintHintTextToAll("%s", test);
+	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>MOST KILLS</font>", COLOR_HIGHLIGHT_HEX);
+	bShowStat[0] = GenerateStatsString(iPlayerKills, sizeof(iPlayerKills), szHeadline, szStatsStrings[0], 1024);
+
+	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>LONGEST KILLSTREAK</font>", COLOR_HIGHLIGHT_HEX);
+	bShowStat[1] = GenerateStatsString(iPlayerHighestKillstreak, sizeof(iPlayerKills), szHeadline, szStatsStrings[1], 1024);
+
+	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>MOST RAILGUN HEADSHOTS</font>", COLOR_HIGHLIGHT_HEX);
+	bShowStat[2] = GenerateStatsString(iPlayerHeadshotKills, sizeof(iPlayerHeadshotKills), szHeadline, szStatsStrings[2], 1024);
+
+	float fStatDisplayDelay = 0.0;
+
+	for (int i = 0; i < STAT_COUNT; i++)
+	{
+		if (bShowStat[i])
+		{
+			DataPack dpStatString;
+			CreateDataTimer(fStatDisplayDelay, Timer_StatDisplay, dpStatString);
+			dpStatString.WriteString(szStatsStrings[i]);
+
+			fStatDisplayDelay += STAT_DISPLAY_TIME;
+		}
+	}
+
+	return fStatDisplayDelay;
+}
+
+public Action Timer_StatDisplay(Handle hTimer, DataPack dpString)
+{
+	char szString[1024];
+
+	dpString.Reset();
+	dpString.ReadString(szString, sizeof(szString));
+
+	PrintToServer("%s", szString);
+	PrintHintTextToAll("%s", szString);
+}
+
+public Action Timer_EndGame(Handle hTimer, int iMaxrounds)
+{
+	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, 1);
+	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, iMaxrounds);
 }
 
 /*
@@ -148,7 +208,7 @@ void StatsTest()
 //wrong place this is
 public Action Command_Stats(int iClient, int iArgs)
 {
-	StatsTest();
+	PrintToServer("%.2f", DisplayStats());
 }
 
 public void OnPluginStart()
@@ -159,26 +219,56 @@ public void OnPluginStart()
 	g_cv_gib_stats_kills      = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
 	g_cv_gib_stats_headshots  = CreateConVar("gib_stats_headshots", "1", "Display highest Railgun Headshot-Counts.");
 	g_cv_gib_stats_killstreak = CreateConVar("gib_stats_killstreak", "1", "Display highest Killstreaks.");
-	g_cv_gib_stats_relaytime  = CreateConVar("gib_stats_relaytime", "1", "Display Times of Players who held the relay Weapon longest.");
+	//g_cv_gib_stats_relaytime  = CreateConVar("gib_stats_relaytime", "1", "Display Times of Players who held the relay Weapon longest.");
+
+	HookEvent("round_start",  GameEvent_RoundStart, EventHookMode_PostNoCopy);
 }
 
 public void OnConfigsExecuted()
 {
-  g_cv_mp_round_restart_delay = FindConVar("mp_round_restart_delay");
-  g_cv_gib_relay_prefix       = FindConVar("gib_relay_prefix");
+  g_cv_mp_maxrounds = FindConVar("mp_maxrounds");
+  //g_cv_gib_relay_prefix       = FindConVar("gib_relay_prefix");
 }
 
 /*
  *
- * Other Hooks
+ * Hooks
  */
+
+public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	// Check for second last round
+	int iRoundsPlayed = GameRules_GetProp("m_totalRoundsPlayed");
+	PrintToChatAll("Rounds played: %i", iRoundsPlayed);
+	PrintToChatAll("Max rounds: %i", g_cv_mp_maxrounds.IntValue);
+
+	if (iRoundsPlayed + 1 == g_cv_mp_maxrounds.IntValue)
+	{
+		PrintToChatAll("It's the last round");
+
+		// Add one Round to prevent instant game end on the next one
+		ConVar_ChangeSilentInt(g_cv_mp_maxrounds, g_cv_mp_maxrounds.IntValue + 1);
+		g_bIsLastRound = true;
+	}
+	else
+	{
+		g_bIsLastRound = false;
+	}
+}
 
 public Action CS_OnTerminateRound(float &fDelay, CSRoundEndReason &csrReason)
 {
 	// Check for an actual Round-End; Exclude the Pre-Game ending
 	if (csrReason != CSRoundEnd_GameStart)
 	{
-		fDelay = 1.0;
+		fDelay = DisplayStats();
+
+		if (g_bIsLastRound)
+		{
+			CreateTimer(fDelay - 0.5, Timer_EndGame, g_cv_mp_maxrounds.IntValue - 1);
+			g_bIsLastRound = false;
+		}
+
 		return Plugin_Changed;
 	}
 
