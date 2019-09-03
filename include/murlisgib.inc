@@ -176,3 +176,18 @@ stock void SerialiseDynamic(Dynamic dynamic)
 		}
 	}
 }
+
+/*
+ *
+ * ConVar Functions
+ */
+
+stock void ConVar_ChangeSilentInt(ConVar cvConVar, int iValue)
+{
+	int iFlags = cvConVar.Flags;
+
+	cvConVar.Flags = iFlags & ~FCVAR_NOTIFY;
+	cvConVar.IntValue = iValue;
+
+	cvConVar.Flags = iFlags;
+}
