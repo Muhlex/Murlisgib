@@ -140,6 +140,11 @@ bool GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[
 
 float DisplayStats()
 {
+	if (!g_cv_gib_stats_enable.BoolValue)
+	{
+		return 0.0;
+	}
+
 	int iPlayerKills[MAXPLAYERS + 1];
 	int iPlayerHeadshotKills[MAXPLAYERS + 1];
 	int iPlayerHighestKillstreak[MAXPLAYERS + 1];
@@ -159,12 +164,18 @@ float DisplayStats()
 
 	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>MOST KILLS</font>", COLOR_HIGHLIGHT_HEX);
 	bShowStat[0] = GenerateStatsString(iPlayerKills, sizeof(iPlayerKills), szHeadline, szStatsStrings[0], 1024);
+	if (!g_cv_gib_stats_kills.BoolValue)
+		bShowStat[0] = false;
 
 	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>LONGEST KILLSTREAK</font>", COLOR_HIGHLIGHT_HEX);
 	bShowStat[1] = GenerateStatsString(iPlayerHighestKillstreak, sizeof(iPlayerKills), szHeadline, szStatsStrings[1], 1024);
+	if (!g_cv_gib_stats_killstreak.BoolValue)
+		bShowStat[0] = false;
 
 	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>MOST RAILGUN HEADSHOTS</font>", COLOR_HIGHLIGHT_HEX);
 	bShowStat[2] = GenerateStatsString(iPlayerHeadshotKills, sizeof(iPlayerHeadshotKills), szHeadline, szStatsStrings[2], 1024);
+	if (!g_cv_gib_stats_headshots.BoolValue)
+		bShowStat[0] = false;
 
 	float fStatDisplayDelay = 0.0;
 
@@ -190,7 +201,6 @@ public Action Timer_StatDisplay(Handle hTimer, DataPack dpString)
 	dpString.Reset();
 	dpString.ReadString(szString, sizeof(szString));
 
-	PrintToServer("%s", szString);
 	PrintHintTextToAll("%s", szString);
 }
 
@@ -205,16 +215,8 @@ public Action Timer_EndGame(Handle hTimer, int iMaxrounds)
  * Public Forwards
  */
 
-//wrong place this is
-public Action Command_Stats(int iClient, int iArgs)
-{
-	PrintToServer("%.2f", DisplayStats());
-}
-
 public void OnPluginStart()
 {
-	RegAdminCmd("sss", Command_Stats, ADMFLAG_ROOT);
-
 	g_cv_gib_stats_enable     = CreateConVar("gib_stats_enable", "1", "Enable Stat-Display on Round End.");
 	g_cv_gib_stats_kills      = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
 	g_cv_gib_stats_headshots  = CreateConVar("gib_stats_headshots", "1", "Display highest Railgun Headshot-Counts.");
@@ -239,13 +241,9 @@ public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDont
 {
 	// Check for second last round
 	int iRoundsPlayed = GameRules_GetProp("m_totalRoundsPlayed");
-	PrintToChatAll("Rounds played: %i", iRoundsPlayed);
-	PrintToChatAll("Max rounds: %i", g_cv_mp_maxrounds.IntValue);
 
 	if (iRoundsPlayed + 1 == g_cv_mp_maxrounds.IntValue)
 	{
-		PrintToChatAll("It's the last round");
-
 		// Add one Round to prevent instant game end on the next one
 		ConVar_ChangeSilentInt(g_cv_mp_maxrounds, g_cv_mp_maxrounds.IntValue + 1);
 		g_bIsLastRound = true;
@@ -265,6 +263,7 @@ public Action CS_OnTerminateRound(float &fDelay, CSRoundEndReason &csrReason)
 
 		if (g_bIsLastRound)
 		{
+			// Force Game End by subtracting from the maxrounds limit.
 			CreateTimer(fDelay - 0.5, Timer_EndGame, g_cv_mp_maxrounds.IntValue - 1);
 			g_bIsLastRound = false;
 		}
