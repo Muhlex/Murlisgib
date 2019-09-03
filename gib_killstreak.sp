@@ -40,18 +40,25 @@ public Plugin myinfo =
  * Functions
  */
 
+void InitializeServer()
+{
+	Dynamic dGibData       = Dynamic.GetSettings().GetDynamic("gib_data");
+
+	// Hook Changes of Server gib_data Object
+	dGibData.HookChanges(DynamicChange_GibData);
+}
+
 void InitializePlayer(int iClient)
 {
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
-	Dynamic dGibData       = Dynamic.GetSettings().GetDynamic("gib_data");
 
 	// Create Member for current Killstreak-Count
 	dGibPlayerData.SetInt("iKillstreak", 0);
+	// Create Member for highest Killstreak-Count
+	dGibPlayerData.SetInt("iHighestKillstreak", 0);
 
 	// Hook Changes of Player gib_data Object
 	dGibPlayerData.HookChanges(DynamicChange_GibPlayerData);
-	// Hook Changes of Server gib_data Object
-	dGibData.HookChanges(DynamicChange_GibData);
 }
 
 void PrintKillstreak(int iClient, int iKillstreak)
@@ -140,6 +147,9 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
+	// After Dynamic is initialised, hook the Server Data
+	InitializeServer();
+
 	// After Dynamic is initialised, hook the Player-Data of every connected Player
 	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAME)
 	{
@@ -223,6 +233,12 @@ public void DynamicChange_GibPlayerData(Dynamic dGibPlayerData, DynamicOffset do
 		dGibPlayerData.SetInt("iKillstreak", ++iKillstreak);
 
 		PrintKillstreak(iClient, iKillstreak);
+
+		// Check if Killstreak is higher than any other previously achieved (in the current round)
+		if (dGibPlayerData.GetInt("iHighestKillstreak", 0) < iKillstreak)
+		{
+			dGibPlayerData.SetInt("iHighestKillstreak", iKillstreak);
+		}
 	}
 
 	iKillsPre[iClient] = iKills;
@@ -240,6 +256,7 @@ public void DynamicChange_GibData(Dynamic dGibData, DynamicOffset doOffset, cons
 			{
 				Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 				dGibPlayerData.SetInt("iKillstreak", 0);
+				dGibPlayerData.SetInt("iHighestKillstreak", 0);
 			}
 		}
 	}
