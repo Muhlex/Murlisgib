@@ -31,11 +31,11 @@ public Plugin myinfo =
  * Functions
  */
 
-void GetHighestValues(const values[], int numValues, output[], int numOutputValues)
+void GetHighestValues(const values[], int iNumValues, output[], int iNumOutputValues)
 {
-	for (int i = 0; i < numOutputValues; i++)
+	for (int i = 0; i < iNumOutputValues; i++)
 	{
-		for (int j = 0; j < numValues; j++)
+		for (int j = 0; j < iNumValues; j++)
 		{
 			if (i == 0)
 			{
@@ -55,26 +55,89 @@ void GetHighestValues(const values[], int numValues, output[], int numOutputValu
 	}
 }
 
+int GetPlacementNames(const values[], any checkForValue, char[] szOutput, int iOutputLength)
+{
+	int iNameCount;
+
+	LOOP_CLIENTS (iClient, CLIENTFILTER_NOSPECTATORS)
+	{
+		char szClientName[33];
+		GetClientName(iClient, szClientName, sizeof(szClientName));
+
+		if (values[iClient] == checkForValue)
+		{
+			if (!StrEqual(szOutput, ""))
+			{
+				StrCat(szOutput, iOutputLength, ", ");
+				PrintToServer("this happened");
+			}
+			StrCat(szOutput, iOutputLength, szClientName);
+
+			iNameCount++;
+		}
+	}
+
+	return iNameCount;
+}
+
+void GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[] szOutput, int iOutputLength) // only works with ints for now
+{
+	// Add Caption to Output
+	StrCat(szOutput, iOutputLength, szCaption);
+
+	int iTopValues[3];
+	GetHighestValues(values, iNumValues, iTopValues, 3);
+
+	char szSingleLine[512];
+	char szSingleLineNames[512];
+
+	for (int iPlace = 0; iPlace < 3; iPlace++)
+	{
+		if (iTopValues[iPlace] > 0)
+		{
+			// Create a single line of the output string
+
+			// Add line highlights (darker 2nd & 3rd Place)
+			if (iPlace == 1)
+			{
+				StrCat(szSingleLine, sizeof(szSingleLine), "<font color='#B2B2B2'>");
+			}
+			else if (iPlace >= 2)
+			{
+				StrCat(szSingleLine, sizeof(szSingleLine), "<font color='#8C8C8C'>");
+			}
+
+			// Retrieve name list
+			GetPlacementNames(values, iTopValues[iPlace], szSingleLineNames, sizeof(szSingleLineNames));
+			// Concatenate values and names
+			Format(szSingleLine, sizeof(szSingleLine), "<br>[%i] %s", iTopValues[iPlace], szSingleLineNames);
+
+			// Add single line to the output string
+			StrCat(szOutput, iOutputLength, szSingleLine);
+
+			// Clear current line strings
+			Format(szSingleLine, sizeof(szSingleLine), "");
+			Format(szSingleLineNames, sizeof(szSingleLineNames), "");
+		}
+	}
+}
+
 void StatsTest()
 {
-	int playerKills[MAXPLAYERS + 1];
-
-	int topKills[3];
+	int iPlayerKills[MAXPLAYERS + 1];
 
 	LOOP_CLIENTS (iClient, CLIENTFILTER_NOSPECTATORS)
 	{
 		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 
-		playerKills[iClient] = dGibPlayerData.GetInt("iKills", 0);
+		iPlayerKills[iClient] = dGibPlayerData.GetInt("iKills", 0);
 	}
 
-	int test[] = {12, 24, 21, 6, 21};
+	char test[1024];
 
-	GetHighestValues(test, 5, topKills, 3);
-
-	PrintToServer("%i, %i, %i", topKills[0], topKills[1], topKills[2]);
-
-
+	GenerateStatsString(iPlayerKills, sizeof(iPlayerKills), "<font color='#A3FC85'>KILLS</font>", test, sizeof(test));
+	PrintToServer("%s", test);
+	PrintHintTextToAll("%s", test);
 }
 
 /*
