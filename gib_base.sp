@@ -20,7 +20,7 @@ ConVar g_cv_gib_score_suicide_penalty;
 
 public Plugin myinfo =
 {
-	name = "Murlisgib Base Plugin",
+	name = "Murlisgib",
 	author = "murlis",
 	description = "Provides basic functionality for Murlisgib.",
 	version = "1.0",
