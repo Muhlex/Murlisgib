@@ -129,7 +129,11 @@ public void OnPluginStart()
   CreateConVar("gib_relay_prefix", "SHOTGUN", "Prefix to append to Alert-Messages.");
 
 	HookEvent("player_death", GameEvent_PlayerDeath);
+}
 
+public void OnAllPluginsLoaded()
+{
+	// After Dynamic is initialised, hook the Server Data
 	InitializeServer();
 }
 
