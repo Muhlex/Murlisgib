@@ -14,6 +14,8 @@ ConVar g_cv_mp_ct_default_secondary;
 ConVar g_cv_mp_teamname_1;
 ConVar g_cv_mp_teamname_2;
 ConVar g_cv_mp_default_team_winner_no_objective;
+ConVar g_cv_mp_respawn_on_death_t;
+ConVar g_cv_mp_respawn_on_death_ct;
 
 ConVar g_cv_gib_railgun;
 ConVar g_cv_gib_score_suicide_penalty;
@@ -48,7 +50,7 @@ void InitializeServer()
 	Dynamic dGibData     = Dynamic();
 
 	// Initialize Server Object Members
-	dGibData.SetBool("bRoundInProgress", true);
+	dGibData.SetBool("bRoundInProgress", false);
 	dGibData.SetInt("iWinner", 0);
 
 	// Store Murlisgib Settings in Settings Object
@@ -92,7 +94,7 @@ int FindWinner()
 	return iWinner;
 }
 
-void SetWinnerScoreboard(int iClient)
+void SetWinnerOnScoreboard(int iClient)
 {
 	// Reset Winner
 	if (iClient == 0)
@@ -117,7 +119,7 @@ void ResetRound()
 	// Reset Winner
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 	dGibData.SetInt("iWinner", 0);
-	SetWinnerScoreboard(0);
+	SetWinnerOnScoreboard(0);
 }
 
 void ResetPlayer(int iClient)
@@ -127,7 +129,7 @@ void ResetPlayer(int iClient)
 	// Find new Winner (if Client was the winning Player)
 	int iWinner = FindWinner();
 	dGibData.SetInt("iWinner", iWinner);
-	SetWinnerScoreboard(iWinner);
+	SetWinnerOnScoreboard(iWinner);
 
 	// Reset Kill-Count
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
@@ -172,9 +174,11 @@ public void OnConfigsExecuted()
 	g_cv_mp_teamname_1                       = FindConVar("mp_teamname_1");
 	g_cv_mp_teamname_2                       = FindConVar("mp_teamname_2");
 	g_cv_mp_default_team_winner_no_objective = FindConVar("mp_default_team_winner_no_objective");
+	g_cv_mp_respawn_on_death_t               = FindConVar("mp_respawn_on_death_t");
+	g_cv_mp_respawn_on_death_ct              = FindConVar("mp_respawn_on_death_ct");
 
 	// Set these to the default Value
-	SetWinnerScoreboard(0);
+	SetWinnerOnScoreboard(0);
 
 	// The default Secondary defines the Weapon to be used as Railgun
 	g_cv_mp_t_default_secondary  = FindConVar("mp_t_default_secondary");
@@ -263,6 +267,10 @@ public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDont
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 	dGibData.SetBool("bRoundInProgress", true);
+
+	// Enable Respawning
+	g_cv_mp_respawn_on_death_t.BoolValue = true;
+	g_cv_mp_respawn_on_death_ct.BoolValue = true;
 }
 
 public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
@@ -297,7 +305,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			// Find new Winner
 			int iWinner = FindWinner();
 			dGibData.SetInt("iWinner", iWinner);
-			SetWinnerScoreboard(iWinner);
+			SetWinnerOnScoreboard(iWinner);
 		}
 
 		// Send current Kills and Points to the Scoreboard
@@ -338,14 +346,14 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			{
 				// Find new Winner
 				iWinner = FindWinner();
-				dGibData.SetInt("iWinner", FindWinner());
-				SetWinnerScoreboard(iWinner);
+				dGibData.SetInt("iWinner", iWinner);
+				SetWinnerOnScoreboard(iWinner);
 			}
 			else if (iAttackerKills > iWinnerKills)
 			{
 				// Set Attacker as Winner
 				dGibData.SetInt("iWinner", iAttacker);
-				SetWinnerScoreboard(iAttacker);
+				SetWinnerOnScoreboard(iAttacker);
 			}
 		}
 	}
@@ -437,6 +445,10 @@ public Action CS_OnTerminateRound(float &fDelay, CSRoundEndReason &csrReason)
 		Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 
 		dGibData.SetBool("bRoundInProgress", false);
+
+		// Disable Respawning
+		g_cv_mp_respawn_on_death_t.BoolValue = false;
+		g_cv_mp_respawn_on_death_ct.BoolValue = false;
 	}
 
 	return Plugin_Continue;
