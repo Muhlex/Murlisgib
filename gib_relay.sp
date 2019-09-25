@@ -170,6 +170,12 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		return;
 	}
 
+	// Check if Round is in Progress
+	if (!dGibData.GetBool("bRoundInProgress"))
+	{
+		return;
+	}
+
 	// Check for Suicide
 	if (iVictim == iAttacker || iAttacker == 0)
 	{
