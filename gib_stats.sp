@@ -14,19 +14,20 @@
 #define COLOR_SHADE1_HEX "#B0C3D9"
 #define COLOR_SHADE2_HEX "#75818E"
 
-#define STAT_COUNT 3
+#define STAT_COUNT 4
 #define STAT_DISPLAY_TIME 4.0
 
 bool g_bIsLastRound = false;
+int g_iMaxRounds;
 
 ConVar g_cv_mp_maxrounds;
-//ConVar g_cv_gib_relay_prefix;
+ConVar g_cv_gib_railgun;
 
 ConVar g_cv_gib_stats_enable;
 ConVar g_cv_gib_stats_kills;
-ConVar g_cv_gib_stats_headshots;
+ConVar g_cv_gib_stats_railgun_headshots;
 ConVar g_cv_gib_stats_killstreak;
-//ConVar g_cv_gib_stats_relaytime;
+ConVar g_cv_gib_stats_longest_distance_kill;
 
 public Plugin myinfo =
 {
@@ -41,6 +42,16 @@ public Plugin myinfo =
  *
  * Functions
  */
+
+void InitializePlayer(int iClient)
+{
+	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+
+	// Create Member for Railgun Headshot-Count
+	dGibPlayerData.SetInt("iRailgunHeadshotKills", 0);
+	// Create Member for longest Distance Kill
+	dGibPlayerData.SetFloat("fLongestDistanceKill", 0.0);
+}
 
 void GetHighestValues(const values[], int iNumValues, output[], int iNumOutputValues)
 {
@@ -90,7 +101,7 @@ int GetPlacementNames(const values[], any checkForValue, char[] szOutput, int iO
 	return iNameCount;
 }
 
-bool GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[] szOutput, int iOutputLength) // only works with ints for now
+bool GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[] szSuffix, char[] szOutput, int iOutputLength) // only works with ints for now
 {
 	int iTopValues[3];
 	GetHighestValues(values, iNumValues, iTopValues, 3);
@@ -115,7 +126,7 @@ bool GenerateStatsString(const values[], int iNumValues, char[] szCaption, char[
 			// Retrieve name list
 			GetPlacementNames(values, iTopValues[iPlace], szSingleLine, sizeof(szSingleLine));
 			// Add values to name list
-			Format(szSingleLine, sizeof(szSingleLine), "<br>[%i] %s", iTopValues[iPlace], szSingleLine);
+			Format(szSingleLine, sizeof(szSingleLine), "<br>[%i%s] %s", iTopValues[iPlace], szSuffix, szSingleLine);
 
 			// Prepend line highlight-HTML (darker 2nd & 3rd Place)
 			if (iPlace == 1)
@@ -146,16 +157,18 @@ float DisplayStats()
 	}
 
 	int iPlayerKills[MAXPLAYERS + 1];
-	int iPlayerHeadshotKills[MAXPLAYERS + 1];
+	int iPlayerRailgunHeadshotKills[MAXPLAYERS + 1];
 	int iPlayerHighestKillstreak[MAXPLAYERS + 1];
+	int iPlayerLongestDistanceKillMeters[MAXPLAYERS + 1];
 
 	LOOP_CLIENTS (iClient, CLIENTFILTER_NOSPECTATORS)
 	{
 		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 
 		iPlayerKills[iClient] = dGibPlayerData.GetInt("iKills", 0);
-		iPlayerHeadshotKills[iClient] = dGibPlayerData.GetInt("iHeadshotKills", 0);
+		iPlayerRailgunHeadshotKills[iClient] = dGibPlayerData.GetInt("iRailgunHeadshotKills", 0);
 		iPlayerHighestKillstreak[iClient] = dGibPlayerData.GetInt("iHighestKillstreak", 0);
+		iPlayerLongestDistanceKillMeters[iClient] = RoundToFloor(Math_UnitsToMeters(dGibPlayerData.GetFloat("fLongestDistanceKill", 0.0)));
 	}
 
 	char szHeadline[128];
@@ -163,19 +176,24 @@ float DisplayStats()
 	char szStatsStrings[STAT_COUNT][1024];
 
 	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>MOST KILLS</font>", COLOR_HIGHLIGHT_HEX);
-	bShowStat[0] = GenerateStatsString(iPlayerKills, sizeof(iPlayerKills), szHeadline, szStatsStrings[0], 1024);
+	bShowStat[0] = GenerateStatsString(iPlayerKills, sizeof(iPlayerKills), szHeadline, "", szStatsStrings[0], 1024);
 	if (!g_cv_gib_stats_kills.BoolValue)
 		bShowStat[0] = false;
 
 	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>LONGEST KILLSTREAK</font>", COLOR_HIGHLIGHT_HEX);
-	bShowStat[1] = GenerateStatsString(iPlayerHighestKillstreak, sizeof(iPlayerKills), szHeadline, szStatsStrings[1], 1024);
+	bShowStat[1] = GenerateStatsString(iPlayerHighestKillstreak, sizeof(iPlayerKills), szHeadline, "", szStatsStrings[1], 1024);
 	if (!g_cv_gib_stats_killstreak.BoolValue)
-		bShowStat[0] = false;
+		bShowStat[1] = false;
 
 	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>MOST RAILGUN HEADSHOTS</font>", COLOR_HIGHLIGHT_HEX);
-	bShowStat[2] = GenerateStatsString(iPlayerHeadshotKills, sizeof(iPlayerHeadshotKills), szHeadline, szStatsStrings[2], 1024);
-	if (!g_cv_gib_stats_headshots.BoolValue)
-		bShowStat[0] = false;
+	bShowStat[2] = GenerateStatsString(iPlayerRailgunHeadshotKills, sizeof(iPlayerRailgunHeadshotKills), szHeadline, "", szStatsStrings[2], 1024);
+	if (!g_cv_gib_stats_railgun_headshots.BoolValue)
+		bShowStat[2] = false;
+
+	Format(szHeadline, sizeof(szHeadline), "<font color='%s'>LONGEST DISTANCE KILL</font>", COLOR_HIGHLIGHT_HEX);
+	bShowStat[3] = GenerateStatsString(iPlayerLongestDistanceKillMeters, sizeof(iPlayerLongestDistanceKillMeters), szHeadline, "m", szStatsStrings[3], 1024);
+	if (!g_cv_gib_stats_longest_distance_kill.BoolValue)
+		bShowStat[3] = false;
 
 	float fStatDisplayDelay = 0.0;
 
@@ -217,19 +235,37 @@ public Action Timer_EndGame(Handle hTimer, int iMaxrounds)
 
 public void OnPluginStart()
 {
-	g_cv_gib_stats_enable     = CreateConVar("gib_stats_enable", "1", "Enable Stat-Display on Round End.");
-	g_cv_gib_stats_kills      = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
-	g_cv_gib_stats_headshots  = CreateConVar("gib_stats_headshots", "1", "Display highest Railgun Headshot-Counts.");
-	g_cv_gib_stats_killstreak = CreateConVar("gib_stats_killstreak", "1", "Display highest Killstreaks.");
-	//g_cv_gib_stats_relaytime  = CreateConVar("gib_stats_relaytime", "1", "Display Times of Players who held the relay Weapon longest.");
+	g_cv_gib_stats_enable                = CreateConVar("gib_stats_enable", "1", "Enable Stat-Display on Round End.");
+	g_cv_gib_stats_kills                 = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
+	g_cv_gib_stats_railgun_headshots     = CreateConVar("gib_stats_railgun_headshots", "1", "Display highest Railgun Headshot-Counts.");
+	g_cv_gib_stats_killstreak            = CreateConVar("gib_stats_killstreak", "1", "Display highest Killstreaks.");
+	g_cv_gib_stats_longest_distance_kill = CreateConVar("gib_stats_longest_distance_kill", "1", "Display longest Distance Kills.");
+	//g_cv_gib_stats_relaytime = CreateConVar("gib_stats_relaytime", "1", "Display Times of Players who held the relay Weapon longest.");
 
-	HookEvent("round_start",  GameEvent_RoundStart, EventHookMode_PostNoCopy);
+	HookEvent("round_start",	GameEvent_RoundStart, EventHookMode_PostNoCopy);
+	HookEvent("player_death", GameEvent_PlayerDeath);
 }
 
 public void OnConfigsExecuted()
 {
-  g_cv_mp_maxrounds = FindConVar("mp_maxrounds");
-  //g_cv_gib_relay_prefix       = FindConVar("gib_relay_prefix");
+	g_cv_gib_railgun  = FindConVar("gib_railgun");
+	g_cv_mp_maxrounds = FindConVar("mp_maxrounds");
+	g_iMaxRounds = g_cv_mp_maxrounds.IntValue;
+}
+
+public void OnAllPluginsLoaded()
+{
+	// After Dynamic is initialised, initialize the Player-Data of every connected Player
+	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAME)
+	{
+		InitializePlayer(iClient);
+	}
+}
+
+public void OnClientPutInServer(int iClient)
+{
+	// Once a new Player connects, initialize their Player-Data
+	InitializePlayer(iClient);
 }
 
 /*
@@ -239,13 +275,19 @@ public void OnConfigsExecuted()
 
 public Action GameEvent_RoundStart(Event eEvent, const char[] szName, bool bDontBroadcast)
 {
+	// Reset Client Stats
+	LOOP_CLIENTS (iClient, CLIENTFILTER_ALL)
+	{
+		InitializePlayer(iClient);
+	}
+
 	// Check for second last round
 	int iRoundsPlayed = GameRules_GetProp("m_totalRoundsPlayed");
 
-	if (iRoundsPlayed + 1 == g_cv_mp_maxrounds.IntValue)
+	if (iRoundsPlayed + 1 == g_iMaxRounds)
 	{
 		// Add one Round to prevent instant game end on the next one
-		ConVar_ChangeSilentInt(g_cv_mp_maxrounds, g_cv_mp_maxrounds.IntValue + 1);
+		ConVar_ChangeSilentInt(g_cv_mp_maxrounds, g_iMaxRounds + 1);
 		g_bIsLastRound = true;
 	}
 	else
@@ -261,15 +303,65 @@ public Action CS_OnTerminateRound(float &fDelay, CSRoundEndReason &csrReason)
 	{
 		fDelay = DisplayStats();
 
-		if (g_bIsLastRound)
+		if (fDelay)
 		{
-			// Force Game End by subtracting from the maxrounds limit.
-			CreateTimer(fDelay - 0.5, Timer_EndGame, g_cv_mp_maxrounds.IntValue - 1);
-			g_bIsLastRound = false;
-		}
+			if (g_bIsLastRound)
+			{
+				// Force Game End by subtracting from the maxrounds limit.
+				CreateTimer(fDelay - 0.5, Timer_EndGame, g_iMaxRounds);
+				g_bIsLastRound = false;
+			}
 
-		return Plugin_Changed;
+			return Plugin_Changed;
+		}
 	}
 
 	return Plugin_Continue;
+}
+
+public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	int iAttacker = GetClientOfUserId(GetEventInt(eEvent, "attacker"));
+	int iVictim = GetClientOfUserId(GetEventInt(eEvent, "userid"));
+	bool bHeadshot = GetEventBool(eEvent, "headshot");
+	char szWeaponName[65];
+	eEvent.GetString("weapon", szWeaponName, sizeof(szWeaponName)); // does NOT return "weapon_" prefix
+	Format(szWeaponName, sizeof(szWeaponName), "weapon_%s", szWeaponName); // adds the prefix
+
+	// Exclude invalid Cases where Victim is no longer ingame
+	if (!Client_IsIngame(iVictim))
+	{
+		return;
+	}
+
+	Dynamic dGibAttackerData = Dynamic.GetPlayerSettings(iAttacker).GetDynamic("gib_data");
+
+	// Check for Suicide
+	if (iVictim == iAttacker || iAttacker == 0)
+	{
+		return;
+	}
+	else if (Client_IsIngame(iAttacker))
+	{
+		// If Kill was a Headshot
+		if (bHeadshot)
+		{
+			char szRailgunName[65];
+			g_cv_gib_railgun.GetString(szRailgunName, sizeof(szRailgunName));
+
+			// If Headshot-Kill was made using the Railgun
+			if (StrEqual(szWeaponName, szRailgunName))
+			{
+				// Update Attacker's Railgun Headshot Kill-Count
+				int iAttackerRailgunHeadshotKills = dGibAttackerData.GetInt("iRailgunHeadshotKills");
+				dGibAttackerData.SetInt("iRailgunHeadshotKills", ++iAttackerRailgunHeadshotKills);
+			}
+		}
+
+		float fDistance = Entity_GetDistance(iVictim, iAttacker);
+		if (fDistance > dGibAttackerData.GetFloat("fLongestDistanceKill"))
+		{
+			dGibAttackerData.SetFloat("fLongestDistanceKill", fDistance);
+		}
+	}
 }
