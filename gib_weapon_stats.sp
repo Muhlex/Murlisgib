@@ -9,7 +9,7 @@
 #include <murlisgib>
 
 #define PATH_ITEMS_GAME "scripts/items/items_game.txt"
-#define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_weapon_stats.cfg"
+#define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_weapons.cfg"
 
 bool g_bFileChanged = false;
 
@@ -118,6 +118,10 @@ int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
 		if (!kvItemsGame.JumpToKey("attributes"))
 			SetFailState("Prefab %s does not have any changable attributes.", szWeaponName);
 
+		// GOTO weapon_stats Configuration
+		if (!kvConfig.JumpToKey("weapon_stats"))
+			break;
+
 		// GOTO First Stat (inside weapon)
 		if (!kvConfig.GotoFirstSubKey(false))
 			break;
@@ -147,6 +151,8 @@ int LoadWeaponStatsIntoAttributes(KeyValues kvItemsGame, KeyValues kvConfig)
 		// GO BACK to Section of current Weapon (inside "prefabs")
 		kvItemsGame.GoBack();
 
+		// GO BACK to weapon_stats category
+		kvConfig.GoBack();
 		// GO BACK to weapon
 		kvConfig.GoBack();
 
@@ -172,7 +178,7 @@ public void OnPluginStart()
 
 	//RegAdminCmd("gib_weapon_stats_reload", Command_WeaponStatsReload, ADMFLAG_ROOT, "gib_weapon_stats_reload");
 
-	KeyValues kvConfig =    new KeyValues("weapon_stats");
+	KeyValues kvConfig =    new KeyValues("weapons");
 	KeyValues kvItemsGame = new KeyValues("items_game");
 
 	// Build the path of the Configuration File
