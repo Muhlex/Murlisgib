@@ -104,14 +104,18 @@ public void OnConfigsExecuted()
 			smWeapon.SetValue("force", fForce);
 
 			char szBuffer[65];
+
 			kvConfig.GetString("blast_particle", szBuffer, sizeof(szBuffer));
-			smWeapon.SetString("blast_particle", szBuffer);
+			if (!StrEqual(szBuffer, ""))
+				smWeapon.SetString("blast_particle", szBuffer);
 
 			kvConfig.GetString("trail_particle", szBuffer, sizeof(szBuffer));
-			smWeapon.SetString("trail_particle", szBuffer);
+			if (!StrEqual(szBuffer, ""))
+				smWeapon.SetString("trail_particle", szBuffer);
 
 			kvConfig.GetString("blast_sound", szBuffer, sizeof(szBuffer));
-			smWeapon.SetString("blast_sound", szBuffer);
+			if (!StrEqual(szBuffer, ""))
+				smWeapon.SetString("blast_sound", szBuffer);
 
 			float fBlastVolume = kvConfig.GetFloat("blast_sound_volume", 1.0);
 			smWeapon.SetValue("blast_sound_volume", fBlastVolume);
