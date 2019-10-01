@@ -213,8 +213,7 @@ public Action GameEvent_BulletImpact(Event eEvent, const char[] szName, bool bDo
 					char szBuffer[65];
 
 					// Blast Particle Effect
-					smWeapon.GetString("blast_particle", szBuffer, sizeof(szBuffer));
-					if (!StrEqual(szBuffer, ""))
+					if (smWeapon.GetString("blast_particle", szBuffer, sizeof(szBuffer)))
 					{
 						int iBlastParticle = CreateEntityByName("info_particle_system");
 						DispatchKeyValue(iBlastParticle, "start_active", "0");
@@ -223,13 +222,10 @@ public Action GameEvent_BulletImpact(Event eEvent, const char[] szName, bool bDo
 						TeleportEntity(iBlastParticle, vImpactPosition, NULL_VECTOR, NULL_VECTOR);
 						ActivateEntity(iBlastParticle);
 						AcceptEntityInput(iBlastParticle, "start");
-
-						szBuffer = "";
 					}
 
 					// Player Trail Particle Effect
-					smWeapon.GetString("trail_particle", szBuffer, sizeof(szBuffer));
-					if (!StrEqual(szBuffer, ""))
+					if (smWeapon.GetString("trail_particle", szBuffer, sizeof(szBuffer)))
 					{
 						// Delete Trail if one already exists
 						RemovePlayerTrail(iClient);
@@ -248,20 +244,15 @@ public Action GameEvent_BulletImpact(Event eEvent, const char[] szName, bool bDo
 						AcceptEntityInput(iTrailParticle, "start");
 
 						g_iPlayerBlastJumpingTrail[iClient] = EntIndexToEntRef(iTrailParticle);
-
-						szBuffer = "";
 					}
 
 					// Auditory Effects
-					smWeapon.GetString("blast_sound", szBuffer, sizeof(szBuffer));
-					if (!StrEqual(szBuffer, ""))
+					if (smWeapon.GetString("blast_sound", szBuffer, sizeof(szBuffer)))
 					{
 						float fBlastVolume;
 						smWeapon.GetValue("blast_sound_volume", fBlastVolume);
 
 						EmitAmbientSound(szBuffer, vImpactPosition, SOUND_FROM_WORLD, 85, SND_NOFLAGS, fBlastVolume, SNDPITCH_NORMAL);
-
-						szBuffer = "";
 					}
 				}
 			}
