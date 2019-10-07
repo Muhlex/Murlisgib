@@ -5,6 +5,7 @@
 #include <sdktools>
 
 #define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_resources.cfg"
+#define PATH_CONFIG_LOCAL /* SOURCEMOD PATH/ */ "configs/gib_resources_local.cfg"
 #define CONFIG_LINE_MAXLENGTH 256
 
 public Plugin myinfo =
@@ -16,50 +17,57 @@ public Plugin myinfo =
 	url = "http://steamcommunity.com/id/muhlex"
 };
 
-public void OnPluginStart()
-{
-	RegAdminCmd("res", Command_TEST, ADMFLAG_SLAY, "res");
-}
-
-public Action Command_TEST(int iClient, int iArgs)
-{
-	OnMapStart();
-}
-
 public void OnMapStart()
 {
 	File fiConfig;
 	char szConfigPath[PLATFORM_MAX_PATH];
 	char szConfigLine[CONFIG_LINE_MAXLENGTH];
 
-	BuildPath(Path_SM, szConfigPath, sizeof(szConfigPath), PATH_CONFIG);
-	fiConfig = OpenFile(szConfigPath, "rt", false);
-
-
-	if (!fiConfig)
-		SetFailState("Plugin Config-File empty or corrupt!");
-
-	while (fiConfig.ReadLine(szConfigLine, sizeof(szConfigLine)))
+	for (int iConfig = 0; iConfig <= 1; iConfig++)
 	{
-		// Remove whitespace characters (includes newlines)
-		TrimString(szConfigLine);
+		// Handle both Configs
+		if (iConfig == 0)
+			BuildPath(Path_SM, szConfigPath, sizeof(szConfigPath), PATH_CONFIG);
+		else if (iConfig == 1)
+			BuildPath(Path_SM, szConfigPath, sizeof(szConfigPath), PATH_CONFIG_LOCAL);
 
-		// Filter out comments and empty lines
-		if (StrContains(szConfigLine, "//") == 0 || strlen(szConfigLine) == 0)
+		fiConfig = OpenFile(szConfigPath, "rt", false);
+
+		if (!fiConfig)
+			SetFailState("Plugin Config-File empty or corrupt!");
+
+		while (fiConfig.ReadLine(szConfigLine, sizeof(szConfigLine)))
 		{
-			continue;
-		}
+			// Remove whitespace characters (includes newlines)
+			TrimString(szConfigLine);
 
-		DownloadAndPrecache(szConfigLine, sizeof(szConfigLine));
+			// Filter out comments and empty lines
+			if (StrContains(szConfigLine, "//") == 0 || strlen(szConfigLine) == 0)
+			{
+				continue;
+			}
+
+			// Do not mark local files for download
+			if (iConfig == 0)
+				DownloadPrecache(szConfigLine, sizeof(szConfigLine));
+			else if (iConfig == 1)
+				DownloadPrecache(szConfigLine, sizeof(szConfigLine), false);
+		}
 	}
 }
 
-void DownloadAndPrecache(const char[] szFilePathInput, int iFilePathLength)
+void DownloadPrecache(const char[] szFilePathInput, int iFilePathLength, bool bDownload = true)
 {
 	char[] szFilePath = new char[iFilePathLength];
 	strcopy(szFilePath, iFilePathLength, szFilePathInput);
 
-	AddFileToDownloadsTable(szFilePath);
+	bool bFileDownloadable = false;
+
+	if (bDownload)
+	{
+		AddFileToDownloadsTable(szFilePath);
+		bFileDownloadable = true;
+	}
 
 	bool bFilePrecached = false;
 
@@ -92,11 +100,15 @@ void DownloadAndPrecache(const char[] szFilePathInput, int iFilePathLength)
 		bFilePrecached = true;
 	}
 
-	if (bFilePrecached)
+	if (bFilePrecached && bFileDownloadable)
 	{
 		LogMessage("%s marked for DL and precached.", szFilePath);
 	}
-	else
+	else if (bFilePrecached)
+	{
+		LogMessage("%s precached.", szFilePath);
+	}
+	else if (bFileDownloadable)
 	{
 		LogMessage("%s marked for DL.", szFilePath);
 	}
