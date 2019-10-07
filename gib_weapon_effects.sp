@@ -102,8 +102,6 @@ void CLQuery_Righthand(QueryCookie qcCookie, int iClient, ConVarQueryResult resu
 		g_bPlayerRighthand[iClient] = false;
 	else if (StrEqual(szCvarValue, "1"))
 		g_bPlayerRighthand[iClient] = true;
-
-	PrintToChatAll("cl_righthand %s", szCvarValue);
 }
 
 public void OnConfigsExecuted()
