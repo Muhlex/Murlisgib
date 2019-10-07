@@ -314,5 +314,35 @@ void RequestFrame_HandleTracers(int iUserid)
 
 public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDontBroadcast)
 {
-	int iClient = GetClientOfUserId(eEvent.GetInt("userid"));
+	int iAttacker = GetClientOfUserId(GetEventInt(eEvent, "attacker"));
+	int iVictim = GetClientOfUserId(GetEventInt(eEvent, "userid"));
+
+	// Exclude invalid Cases where Victim is no longer ingame or suicided
+	if (!Client_IsIngame(iVictim) || iVictim == iAttacker || iAttacker == 0)
+		return;
+
+	char szWeaponName[33];
+
+	eEvent.GetString("weapon", szWeaponName, sizeof(szWeaponName)); // does NOT return "weapon_" prefix
+	Format(szWeaponName, sizeof(szWeaponName), "weapon_%s", szWeaponName); // adds the prefix
+
+	// Check if the weapon is setup for effects
+	StringMap smWeapon = new StringMap();
+
+	char szBuffer[65];
+
+	if (g_smWeaponConfig.GetValue(szWeaponName, smWeapon))
+	{
+		// Tracer Particle
+		if (smWeapon.GetString("kill_impact_particle", szBuffer, sizeof(szBuffer)))
+		{
+			float vVictimPosition[3];
+			GetClientAbsOrigin(iVictim, vVictimPosition); // Returns Camera Position as the Player is dead
+
+			vVictimPosition[2] -= 20; // Slightly adjust to center of Playermodel
+
+			TE_EffectDispatch(szBuffer, vVictimPosition, vVictimPosition);
+			TE_SendToAll();
+		}
+	}
 }
