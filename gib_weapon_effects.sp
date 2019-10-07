@@ -1,6 +1,3 @@
-//TODO:
-// Support cl_righthand 0
-
 #pragma semicolon 1
 #pragma newdecls required
 
@@ -16,6 +13,9 @@
 #define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_weapons.cfg"
 
 StringMap g_smWeaponConfig;
+
+// Sets whether the player uses righthanded viewmodels or not
+bool g_bPlayerRighthand[MAXPLAYERS + 1] = {true, ...};
 
 // Set when the gun used for the last shot has tracers configured
 bool g_bHandleTracers[MAXPLAYERS + 1];
@@ -86,6 +86,24 @@ public void OnPluginStart()
 	AddTempEntHook("Shotgun Shot", TEHook_FireBullets);
 	HookEvent("bullet_impact", GameEvent_BulletImpact);
 	HookEvent("player_death", GameEvent_PlayerDeath);
+}
+
+public void OnClientPostAdminCheck(int iClient)
+{
+	QueryClientConVar(iClient, "cl_righthand", CLQuery_Righthand);
+}
+
+void CLQuery_Righthand(QueryCookie qcCookie, int iClient, ConVarQueryResult result, const char[] szCvarName, const char[] szCvarValue)
+{
+	if (result != ConVarQuery_Okay)
+		return;
+
+	if (StrEqual(szCvarValue, "0"))
+		g_bPlayerRighthand[iClient] = false;
+	else if (StrEqual(szCvarValue, "1"))
+		g_bPlayerRighthand[iClient] = true;
+
+	PrintToChatAll("cl_righthand %s", szCvarValue);
 }
 
 public void OnConfigsExecuted()
@@ -190,8 +208,12 @@ public Action TEHook_FireBullets(const char[] szTE_Name, const int[] iPlayers, i
 					g_vViewmodelPosition[iClient][i] += vPlayerForwardVector[i] * 10;
 					// Move down
 					g_vViewmodelPosition[iClient][i] -= vPlayerUpVector[i] * 2;
-					// Move right
-					g_vViewmodelPosition[iClient][i] += vPlayerRightVector[i] * 4;
+
+					// Move right (/left)
+					if (g_bPlayerRighthand[iClient])
+						g_vViewmodelPosition[iClient][i] += vPlayerRightVector[i] * 4;
+					else
+						g_vViewmodelPosition[iClient][i] -= vPlayerRightVector[i] * 4;
 				}
 
 				// Get Worldmodel Muzzle Position
