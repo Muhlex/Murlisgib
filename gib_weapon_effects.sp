@@ -1,6 +1,4 @@
 //TODO:
-// Add Death impact effect
-// Add sounds
 // Support cl_righthand 0
 
 #pragma semicolon 1
@@ -206,6 +204,16 @@ public Action TEHook_FireBullets(const char[] szTE_Name, const int[] iPlayers, i
 			{
 				g_bHandleTracers[iClient] = false;
 			}
+		}
+
+		char szBuffer[65];
+
+		if (smWeapon.GetString("shot_sound", szBuffer, sizeof(szBuffer)))
+		{
+			float fShotVolume;
+			smWeapon.GetValue("shot_sound_volume", fShotVolume);
+
+			EmitAmbientSound(szBuffer, g_vPlayerViewPosition[iClient], SOUND_FROM_WORLD, SNDLEVEL_NORMAL, SND_NOFLAGS, fShotVolume, SNDPITCH_LOW);
 		}
 	}
 }
