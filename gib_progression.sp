@@ -193,18 +193,21 @@ stock void ConnectDB()
 		SetFailState("Could not connect to Murlisgib database: %s", szError);
 	}
 
+	char szQuery[512];
+
 	SQL_LockDatabase(g_db);
 	if (StrEqual(szDriverIdent, "sqlite"))
 	{
-		SQL_FastQuery(g_db, "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTOINCREMENT, steam_id TEXT UNIQUE, xp INT);");
+		szQuery = "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTOINCREMENT, steam_id TEXT UNIQUE, xp INT);";
 	}
 	else
 	{
-		SQL_FastQuery(g_db, "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTO_INCREMENT, steam_id CHAR(20) UNIQUE, xp INT);");
+		szQuery = "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTO_INCREMENT, steam_id CHAR(20) UNIQUE, xp INT);";
 	}
 
-	if (SQL_GetError(g_db, szError, sizeof(szError)))
-		SetFailState("Could not create Player Table: %s", szError);
+	if (!SQL_FastQuery(g_db, szQuery))
+		if (SQL_GetError(g_db, szError, sizeof(szError)))
+			SetFailState("Could not create Player Table: %s", szError);
 
 	SQL_UnlockDatabase(g_db);
 }
@@ -683,7 +686,7 @@ public Action Command_ShowXP(int iClient, int iArgs)
 		int iTargetList[MAXPLAYERS], iTargetCount;
 		bool bTargetIsML;
 
-		iTargetCount = ProcessTargetString(szArg, iClient, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, szTargetName, sizeof(szTargetName), bTargetIsML);
+		iTargetCount = ProcessTargetString(szArg, 0, iTargetList, MAXPLAYERS, COMMAND_FILTER_NO_BOTS, szTargetName, sizeof(szTargetName), bTargetIsML);
 
 		if (iTargetCount <= 0) // No matching client
 		{
