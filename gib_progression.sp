@@ -185,13 +185,27 @@ stock void ConnectDB()
 	char szError[255];
 	g_db = SQL_Connect("murlisgib", true, szError, sizeof(szError));
 
+	char szDriverIdent[33];
+	g_db.Driver.GetIdentifier(szDriverIdent, sizeof(szDriverIdent));
+
 	if (g_db == null)
 	{
 		SetFailState("Could not connect to Murlisgib database: %s", szError);
 	}
 
 	SQL_LockDatabase(g_db);
-	SQL_FastQuery(g_db, "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTOINCREMENT, steam_id TEXT UNIQUE, xp INT);");
+	if (StrEqual(szDriverIdent, "sqlite"))
+	{
+		SQL_FastQuery(g_db, "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTOINCREMENT, steam_id TEXT UNIQUE, xp INT);");
+	}
+	else
+	{
+		SQL_FastQuery(g_db, "CREATE TABLE IF NOT EXISTS player (id INTEGER PRIMARY KEY AUTO_INCREMENT, steam_id CHAR(20) UNIQUE, xp INT);");
+	}
+
+	if (SQL_GetError(g_db, szError, sizeof(szError)))
+		SetFailState("Could not create Player Table: %s", szError);
+
 	SQL_UnlockDatabase(g_db);
 }
 
