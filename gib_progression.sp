@@ -5,14 +5,20 @@
 #include <sdktools>
 #include <cstrike>
 
+#include <smlib>
+#include <dynamic>
+
+#include <murlisgib>
+
 #define SOUND_RANK_UP "ui/panorama/gameover_newskillgroup_01.wav"
 #define SOUND_RANK_UP_VOL 0.4
 
 #define XP_BASE_RATE 5
+#define XP_BASE_INTERVAL 10.0
 #define XP_ON_KILL 10
 #define XP_ON_HEADSHOT 15
 #define XP_ON_KNIFE 20
-#define XP_ON_SHOTGUN 5
+#define XP_ON_RELAY 5
 #define XP_ON_WIN 200
 
 int g_iRankNeededXp[] =
@@ -35,50 +41,44 @@ int g_iRankNeededXp[] =
 	176000, 178000, 180000, 182000, 184000, 186000, 188000, 190000, 192000, 194000
 };
 
+// True once a Client's XP have been loaded from the database successfully
+bool  g_bClientSynced[MAXPLAYERS + 1] = {false, ...};
+
+// Total Player XP Amount
 int   g_iClientXp[MAXPLAYERS + 1];
+// Resulting player Rank
 int   g_iClientRank[MAXPLAYERS + 1];
 
+// Timestamp of Player's Play Start for the current Round
 float g_fClientPlaytimeTimestamp[MAXPLAYERS + 1];
-int   g_iClientOtherKills[MAXPLAYERS + 1];
+// Kills made in the current Round
+int   g_iClientRegularKills[MAXPLAYERS + 1];
 int   g_iClientHeadshotKills[MAXPLAYERS + 1];
 int   g_iClientKnifeKills[MAXPLAYERS + 1];
-int   g_iClientShotgunKills[MAXPLAYERS + 1];
-int   g_iWinningClient;
+int   g_iClientRelayKills[MAXPLAYERS + 1];
 
 ConVar g_cvXPNotifications;
 Handle g_hTimer_XPBase = INVALID_HANDLE;
 Database g_db;
 
-
+ConVar g_cv_gib_railgun;
+ConVar g_cv_gib_relay_weapon;
 
 public Plugin myinfo =
 {
 	name = "Murlisgib Progression",
 	author = "murlis",
-	description = "XP & Rank system for unlockable items.",
+	description = "XP & Rank system.",
 	version = "1.0",
 	url = "http://steamcommunity.com/id/muhlex"
 };
 
-
-
-// NATIVE FUNCTIONS
-// ----------------
-native int Murlisgib_GetWinner();
-native int Murlisgib_GetStatDelay();
-
-
 // STOCK FUNCTIONS
 // ---------------
 
-stock void PlayClientSound(int iClient, char[] sound, float volume)
-{
-	EmitSoundToClient(iClient, sound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
-}
-
 stock void ApplyMVPs(int iClient)
 {
-	if ((iClient >= 1) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
+	if (Client_IsIngame(iClient))
 	{
 		CS_SetMVPCount(iClient, g_iClientRank[iClient]);
 	}
@@ -88,6 +88,8 @@ stock void ResetClient(int iClient, bool bResetXP = false)
 {
 	if (bResetXP)
 	{
+		g_iClientXp[iClient] = 0;
+
 		if (!IsFakeClient(iClient))
 		{
 			g_iClientRank[iClient] = 1;
@@ -99,56 +101,55 @@ stock void ResetClient(int iClient, bool bResetXP = false)
 	}
 
 	g_fClientPlaytimeTimestamp[iClient] = GetGameTime();
-	g_iClientOtherKills[iClient] = 0;
+	g_iClientRegularKills[iClient] = 0;
 	g_iClientHeadshotKills[iClient] = 0;
 	g_iClientKnifeKills[iClient] = 0;
-	g_iClientShotgunKills[iClient] = 0;
+	g_iClientRelayKills[iClient] = 0;
 }
 
-stock void PrintXPReport(int iClient)
+stock void PrintXPReport(int iClient, float fDelay = 0.0)
 {
 	DataPack dpClientInfo;
 
-	// Get round_restart_delay as set by Instagib Plugin
-	float fStatDelay = view_as<float>(Murlisgib_GetStatDelay());
-
-	CreateDataTimer(fStatDelay, Timer_PrintXPReport, dpClientInfo);
+	CreateDataTimer(fDelay, Timer_PrintXPReport, dpClientInfo);
 
 	float fClientPlaytime = GetGameTime() - g_fClientPlaytimeTimestamp[iClient];
 
 	dpClientInfo.WriteCell(GetClientUserId(iClient));
 	dpClientInfo.WriteFloat(fClientPlaytime);
-	dpClientInfo.WriteCell(g_iClientOtherKills[iClient]);
+	dpClientInfo.WriteCell(g_iClientRegularKills[iClient]);
 	dpClientInfo.WriteCell(g_iClientHeadshotKills[iClient]);
 	dpClientInfo.WriteCell(g_iClientKnifeKills[iClient]);
-	dpClientInfo.WriteCell(g_iClientShotgunKills[iClient]);
+	dpClientInfo.WriteCell(g_iClientRelayKills[iClient]);
 }
 
 public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
 {
-	int iClient, iClientOtherKills, iClientHeadshotKills, iClientKnifeKills, iClientShotgunKills;
+	int iClient, iClientRegularKills, iClientHeadshotKills, iClientKnifeKills, iClientShotgunKills;
 	float fClientPlaytime;
 
 	dpClientInfo.Reset();
 	iClient = GetClientOfUserId(dpClientInfo.ReadCell());
 	fClientPlaytime = dpClientInfo.ReadFloat();
-	iClientOtherKills = dpClientInfo.ReadCell();
+	iClientRegularKills = dpClientInfo.ReadCell();
 	iClientHeadshotKills = dpClientInfo.ReadCell();
 	iClientKnifeKills = dpClientInfo.ReadCell();
 	iClientShotgunKills = dpClientInfo.ReadCell();
 
 	// Return if client disconnected
-	if (iClient == 0)
+	if (!Client_IsIngame(iClient))
 	{
 		return;
 	}
 
 	char szWinner[24], szTimePlayed[8];
 	int iTimePlayedXP, iWinnerXP;
-	int iHeadshotKillsXP, iKnifeKillsXP, iShotgunKillsXP, iOtherKillsXP;
+	int iHeadshotKillsXP, iKnifeKillsXP, iShotgunKillsXP, iRegularKillsXP;
 	int iTotalXP;
 
-	if (g_iWinningClient == iClient)
+	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+
+	if (dGibData.GetInt("iWinner") == iClient)
 	{
 		iWinnerXP = XP_ON_WIN;
 		Format(szWinner, sizeof(szWinner), " \x0A| Winner \x0B[+%iXP]", iWinnerXP);
@@ -160,10 +161,10 @@ public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
 
 	iHeadshotKillsXP = iClientHeadshotKills * XP_ON_HEADSHOT;
 	iKnifeKillsXP    = iClientKnifeKills * XP_ON_KNIFE;
-	iShotgunKillsXP  = iClientShotgunKills * XP_ON_SHOTGUN;
-	iOtherKillsXP    = iClientOtherKills * XP_ON_KILL;
+	iShotgunKillsXP  = iClientShotgunKills * XP_ON_RELAY;
+	iRegularKillsXP    = iClientRegularKills * XP_ON_KILL;
 
-	iTotalXP = iTimePlayedXP + iWinnerXP + iHeadshotKillsXP + iKnifeKillsXP + iShotgunKillsXP + iOtherKillsXP;
+	iTotalXP = iTimePlayedXP + iWinnerXP + iHeadshotKillsXP + iKnifeKillsXP + iShotgunKillsXP + iRegularKillsXP;
 
 	float fXPPercentage = GetRelativeXPPercentage(iClient);
 	char szXPBar[256];
@@ -174,7 +175,7 @@ public Action Timer_PrintXPReport(Handle hTimer, DataPack dpClientInfo)
 	PrintToChat(iClient, " \x0ARailgun-Headshot Kills \x0C(%i) \x0B[+%iXP] \x0A| Knife Kills \x0C(%i) \x0B[+%iXP]",
 	iClientHeadshotKills, iHeadshotKillsXP, iClientKnifeKills, iKnifeKillsXP);
 	PrintToChat(iClient, " \x0AShotgun Kills \x0C(%i) \x0B[+%iXP] \x0A| Other Kills \x0C(%i) \x0B[+%iXP]",
-	iClientShotgunKills, iShotgunKillsXP, iClientOtherKills, iOtherKillsXP);
+	iClientShotgunKills, iShotgunKillsXP, iClientRegularKills, iRegularKillsXP);
 	PrintToChat(iClient, " \x0CTOTAL EARNED: \x0B%iXP", iTotalXP);
 	PrintToChat(iClient, " \x0B%iXP / %iXP  %s  \x0B[%.0f%%]", GetRelativeXP(iClient), GetRelativeNeededXP(iClient), szXPBar, fXPPercentage * 100);
 }
@@ -224,6 +225,8 @@ stock void AddPlayerDB(int iClient)
 
 stock void LoadXP(int iClient)
 {
+	g_bClientSynced[iClient] = false;
+
 	if (IsClientConnected(iClient) && !IsFakeClient(iClient))
 	{
 		char szSteamId[21];
@@ -241,12 +244,13 @@ stock void LoadXP(int iClient)
 	}
 }
 
-stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, any iUser)
+stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, any iUserid)
 {
-	int iClient = GetClientOfUserId(iUser);
+	int iClient = GetClientOfUserId(iUserid);
 
 	if (hQuery == INVALID_HANDLE)
 	{
+		g_bClientSynced[iClient] = false;
 		ThrowError("Error retrieving Client %i XP: %s", iClient, szError);
 		return;
 	}
@@ -260,10 +264,10 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 	}
 
 	// Check if same client is still in-game
-	if ((iClient >= 1) && (IsClientInGame(iClient)) && (iClient <= MaxClients))
+	if (Client_IsIngame(iClient))
 	{
-		// If result found in database
-		if (iClientXP < 0)
+		// If no result found in database
+		if (iClientXP == -1)
 		{
 			AddPlayerDB(iClient);
 		}
@@ -272,12 +276,13 @@ stock void Callback_LoadXP(Handle hOwner, Handle hQuery, const char[] szError, a
 			g_iClientXp[iClient] = iClientXP;
 			UpdateRank(iClient);
 		}
+		g_bClientSynced[iClient] = true;
 	}
 }
 
 stock void SaveXP(int iClient)
 {
-	if (IsClientConnected(iClient) && !IsFakeClient(iClient))
+	if (g_bClientSynced[iClient] && IsClientConnected(iClient) && !IsFakeClient(iClient))
 	{
 		char szSteamId[21];
 		char szQuery[200];
@@ -296,7 +301,7 @@ stock void SaveXP(int iClient)
 
 stock void LoadXPAll()
 {
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAME)
 	{
 		LoadXP(iClient);
 	}
@@ -304,7 +309,7 @@ stock void LoadXPAll()
 
 stock void SaveXPAll()
 {
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAMEAUTH)
 	{
 		SaveXP(iClient);
 	}
@@ -336,7 +341,7 @@ stock int UpdateRank(int iClient, bool bAnnounce = false)
 			{
 				PrintToChat(iClient, " \x0A⸻ \x0CCongratulations! \x0A⸻");
 				PrintToChat(iClient, " \x0BYou reached a new Rank: \x0C%i", i);
-				PlayClientSound(iClient, SOUND_RANK_UP, SOUND_RANK_UP_VOL);
+				Sound_PlayUIClient(iClient, SOUND_RANK_UP, SOUND_RANK_UP_VOL);
 			}
 		}
 		else
@@ -425,7 +430,7 @@ stock char[] GenerateProgressBar(float fPercentage, int iBars, char[] szColorFil
 
 public void OnPluginStart()
 {
-	g_cvXPNotifications = CreateConVar("xp_notifications", "0", "Whether to show notifications in chat for every XP-awarding event.");
+	g_cvXPNotifications = CreateConVar("gib_xp_notifications", "0", "Whether to show notifications in chat for every XP-awarding event.");
 
 	HookEvent("round_start", Event_RoundStart);
 	HookEvent("player_death", Event_PlayerDeath);
@@ -437,6 +442,12 @@ public void OnPluginStart()
 
 	ConnectDB();
 	LoadXPAll();
+}
+
+public void OnConfigsExecuted()
+{
+	g_cv_gib_railgun = FindConVar("gib_railgun");
+	g_cv_gib_relay_weapon = FindConVar("gib_relay_weapon");
 }
 
 public void OnPluginEnd()
@@ -453,7 +464,7 @@ public void OnMapStart()
 {
 	PrecacheSound(SOUND_RANK_UP);
 
-	g_hTimer_XPBase = CreateTimer(10.0, Timer_XPBase, _, TIMER_REPEAT);
+	g_hTimer_XPBase = CreateTimer(XP_BASE_INTERVAL, Timer_XPBase, _, TIMER_REPEAT);
 }
 
 public void OnMapEnd()
@@ -469,17 +480,13 @@ public void OnMapEnd()
 
 public void OnClientDisconnect(int iClient)
 {
-	// Prevent saving empty data
-	if (g_iClientXp[iClient] > 0)
-	{
-		SaveXP(iClient);
-	}
+	SaveXP(iClient);
 	ResetClient(iClient, true);
 }
 
 public Action Timer_XPBase(Handle hTimer)
 {
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	LOOP_CLIENTS(iClient, CLIENTFILTER_INGAMEAUTH)
 	{
 		if (IsClientInGame(iClient) && !IsFakeClient(iClient) && GetClientTeam(iClient) > 1)
 		{
@@ -501,7 +508,7 @@ public Action Timer_XPBase(Handle hTimer)
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	// For each Client
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAMEAUTH)
 	{
 		// Reset Client Kill-Stats only
 		ResetClient(iClient, false);
@@ -517,20 +524,21 @@ public Action CS_OnTerminateRound(float &delay, CSRoundEndReason &reason)
 	}
 
 	// Award Winner XP
-	g_iWinningClient = Murlisgib_GetWinner();
+	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
+	int iWinner = dGibData.GetInt("iWinner");
 
-	if (g_iWinningClient > 0)
+	if (iWinner > 0)
 	{
-		g_iClientXp[g_iWinningClient] += XP_ON_WIN;
+		g_iClientXp[iWinner] += XP_ON_WIN;
 
 		if (g_cvXPNotifications.BoolValue)
 		{
-			PrintToChat(g_iWinningClient, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
+			PrintToChat(iWinner, " \x0DAwarded %iXP for Winning the Game.", XP_ON_WIN);
 		}
 	}
 
 	// For each Client
-	for (int iClient = 1; iClient <= MaxClients ; iClient++)
+	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAMEAUTH)
 	{
 		if (IsClientInGame(iClient) && !IsFakeClient(iClient))
 		{
@@ -549,7 +557,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	bool bHeadshot = GetEventBool(event, "headshot");
 
 	// Filter for valid clients only
-	if (iAttacker < 1 || iAttacker > GetMaxHumanPlayers())
+	if (iAttacker < 1 || iAttacker > MaxClients)
 	{
 		return;
 	}
@@ -564,22 +572,35 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 		return;
 	}
 
-	// Get active weapon (returns classname instead of weaponname)
-	char szWeapon[32];
-	int iWeaponEdict = GetEntPropEnt(iAttacker, Prop_Data, "m_hActiveWeapon");
-	GetEdictClassname(iWeaponEdict, szWeapon, sizeof(szWeapon));
+	// Get Name of used Weapon
+	char szWeaponName[33];
+	event.GetString("weapon", szWeaponName, sizeof(szWeaponName)); // does NOT return "weapon_" prefix
+	Format(szWeaponName, sizeof(szWeaponName), "weapon_%s", szWeaponName); // adds the prefix
 
-	if (StrEqual(szWeapon, "weapon_mag7"))
+	// Get Classname of used Weapon
+	char szWeaponClassname[33];
+	int iWeapon = GetEntPropEnt(iAttacker, Prop_Data, "m_hActiveWeapon");
+	GetEdictClassname(iWeapon, szWeaponClassname, sizeof(szWeaponClassname));
+
+	// Get Railgun Weapon
+	char szRailgunName[33];
+	g_cv_gib_railgun.GetString(szRailgunName, sizeof(szRailgunName));
+
+	// Get Relay Weapon
+	char szRelayWeaponName[33];
+	g_cv_gib_relay_weapon.GetString(szRelayWeaponName, sizeof(szRelayWeaponName));
+
+	if (StrEqual(szWeaponName, szRelayWeaponName))
 	{
-		g_iClientXp[iAttacker] += XP_ON_SHOTGUN;
-		g_iClientShotgunKills[iAttacker]++;
+		g_iClientXp[iAttacker] += XP_ON_RELAY;
+		g_iClientRelayKills[iAttacker]++;
 
 		if (g_cvXPNotifications.BoolValue)
 		{
-			PrintToChat(iAttacker, " \x0DAwarded %iXP for Shotgun Kill.", XP_ON_SHOTGUN);
+			PrintToChat(iAttacker, " \x0DAwarded %iXP for Relay-Weapon Kill.", XP_ON_RELAY);
 		}
 	}
-	else if (bHeadshot && StrEqual(szWeapon, "weapon_hkp2000"))
+	else if (bHeadshot && StrEqual(szWeaponName, szRailgunName))
 	{
 		g_iClientXp[iAttacker] += XP_ON_HEADSHOT;
 		g_iClientHeadshotKills[iAttacker]++;
@@ -589,7 +610,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 			PrintToChat(iAttacker, " \x0DAwarded %iXP for Railgun-Headshot Kill.", XP_ON_HEADSHOT);
 		}
 	}
-	else if (StrEqual(szWeapon, "weapon_knife"))
+	else if (StrEqual(szWeaponClassname, "weapon_knife"))
 	{
 		g_iClientXp[iAttacker] += XP_ON_KNIFE;
 		g_iClientKnifeKills[iAttacker]++;
@@ -602,7 +623,7 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	else
 	{
 		g_iClientXp[iAttacker] += XP_ON_KILL;
-		g_iClientOtherKills[iAttacker]++;
+		g_iClientRegularKills[iAttacker]++;
 
 		if (g_cvXPNotifications.BoolValue)
 		{
