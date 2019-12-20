@@ -88,6 +88,7 @@ stock void ResetClient(int iClient, bool bResetXP = false)
 {
 	if (bResetXP)
 	{
+		g_bClientSynced[iClient] = false;
 		g_iClientXp[iClient] = 0;
 
 		if (!IsFakeClient(iClient))
