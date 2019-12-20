@@ -158,7 +158,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 
 	char szWeaponName[33];
 	GetEventString(eEvent, "weapon", szWeaponName, sizeof(szWeaponName));
-	// Add "_weapon"-Prefix
+	// Add "weapon_"-Prefix
 	Format(szWeaponName, sizeof(szWeaponName), "weapon_%s", szWeaponName);
 
 	char szRelayWeaponName[33];
