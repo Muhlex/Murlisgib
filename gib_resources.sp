@@ -65,7 +65,11 @@ void DownloadPrecache(const char[] szFilePathInput, int iFilePathLength, bool bD
 
 	if (bDownload)
 	{
-		AddFileToDownloadsTable(szFilePath);
+		char[] szFilePathDL = new char[iFilePathLength];
+		strcopy(szFilePathDL, iFilePathLength, szFilePath);
+
+		ReplaceString(szFilePathDL, iFilePathLength, "~", "");
+		AddFileToDownloadsTable(szFilePathDL);
 		bFileDownloadable = true;
 	}
 

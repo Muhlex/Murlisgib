@@ -2,6 +2,8 @@
 #include <sdkhooks>
 #include <sdktools>
 
+#include <murlisgib>
+
 public Plugin myinfo =
 {
 	name = "Gibs",
@@ -32,8 +34,8 @@ public void OnMapStart()
 	AddFileToDownloadsTable("sound/murlisgib/gibs/fruit.wav");
 	AddFileToDownloadsTable("sound/murlisgib/gibs/fruit_trail.wav");
 
-	PrecacheSound("murlisgib/gibs/fruit.wav");
-	PrecacheSound("murlisgib/gibs/fruit_trail.wav");
+	PrecacheSound("~murlisgib/gibs/fruit.wav");
+	PrecacheSound("~murlisgib/gibs/fruit_trail.wav");
 }
 
 public Action Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
@@ -78,11 +80,8 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 	}
 
 	// SOUND
-
-	//EmitSoundToAll("murlisgib/gibs/fruit.wav", SOUND_FROM_WORLD, SNDCHAN_WEAPON, 70, SND_NOFLAGS, 1.0, SNDPITCH_NORMAL, -1, g_clientPosition[client], NULL_VECTOR, true, 0.0);
-	//EmitSoundToAll("murlisgib/gibs/fruit_trail.wav", SOUND_FROM_WORLD, SNDCHAN_WEAPON, 70, SND_NOFLAGS, 1.0, SNDPITCH_NORMAL, -1, g_clientPosition[client], NULL_VECTOR, true, 0.0);
-	EmitAmbientSound("murlisgib/gibs/fruit.wav", g_clientPosition[client], SOUND_FROM_WORLD, 70, SND_NOFLAGS, 0.5, SNDPITCH_NORMAL);
-	EmitAmbientSound("murlisgib/gibs/fruit_trail.wav", g_clientPosition[client], SOUND_FROM_WORLD, 55, SND_NOFLAGS, 0.75, SNDPITCH_NORMAL);
+	Sound_PlayWorldAll(client, "~murlisgib/gibs/fruit.wav", 0.5, 70, _, g_clientPosition[client]);
+	Sound_PlayWorldAll(client, "~murlisgib/gibs/fruit_trail.wav", 0.75, 55, _, g_clientPosition[client]);
 
 	// PARTICLES
 	// Particle to dispatch:

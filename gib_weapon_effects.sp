@@ -232,7 +232,7 @@ public Action TEHook_FireBullets(const char[] szTE_Name, const int[] iPlayers, i
 			float fShotVolume;
 			smWeapon.GetValue("shot_sound_volume", fShotVolume);
 
-			EmitAmbientSound(szBuffer, g_vPlayerViewPosition[iClient], SOUND_FROM_WORLD, SNDLEVEL_NORMAL, SND_NOFLAGS, fShotVolume, SNDPITCH_LOW);
+			Sound_PlayWorldAll(iClient, szBuffer, fShotVolume, 90, SNDPITCH_LOW, g_vPlayerViewPosition[iClient]);
 		}
 	}
 }

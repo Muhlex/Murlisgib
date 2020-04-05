@@ -65,6 +65,21 @@ stock void Sound_PlayUIAll(const char[] szSound, float fVolume)
 	EmitSoundToAll(szSound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, fVolume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
 }
 
+stock void Sound_PlayWorldAll(int iEmitFromEntity, const char[] szSound, float fVolume, int iLevel, int iPitch = SNDPITCH_NORMAL, const float vOrigin[3], const float vDir[3] = NULL_VECTOR)
+{
+	LOOP_CLIENTS (iClient, CLIENTFILTER_ALIVE)
+	{
+		if (iClient == iEmitFromEntity)
+		{
+			EmitSoundToClient(iClient, szSound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, iLevel, SND_NOFLAGS, fVolume, iPitch, -1, NULL_VECTOR, NULL_VECTOR, false, 0.0);
+		}
+		else
+		{
+			EmitSoundToClient(iClient, szSound, SOUND_FROM_WORLD, SNDCHAN_AUTO, iLevel, SND_NOFLAGS, fVolume, iPitch, -1, vOrigin, NULL_VECTOR, false, 0.0);
+		}
+	}
+}
+
 /*
  *
  * Temp-Ent Functions

@@ -8,6 +8,8 @@
 #include <smlib>
 #include <dynamic>
 
+#include <murlisgib>
+
 #define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_weapons.cfg"
 
 bool g_bPluginLoadedLate;
@@ -252,7 +254,7 @@ public Action GameEvent_BulletImpact(Event eEvent, const char[] szName, bool bDo
 						float fBlastVolume;
 						smWeapon.GetValue("blast_sound_volume", fBlastVolume);
 
-						EmitAmbientSound(szBuffer, vImpactPosition, SOUND_FROM_WORLD, 85, SND_NOFLAGS, fBlastVolume, SNDPITCH_NORMAL);
+						Sound_PlayWorldAll(SOUND_FROM_WORLD, szBuffer, fBlastVolume, 85, _, vImpactPosition);
 					}
 				}
 			}
