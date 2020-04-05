@@ -9,7 +9,7 @@
 
 #define SND_HITSOUND_1 "ui/item_drop.wav"
 #define SND_HITSOUND_2 "ui/item_drop1_common.wav"
-#define SND_HITSOUND_VOLUME 0.88
+#define SND_HITSOUND_VOLUME 1.0
 
 #define SND_HEADSHOT_1 "commander/train_bodydamageheadshot_01.wav"
 #define SND_HEADSHOT_2 "commander/train_bodydamageheadshot_01b.wav"

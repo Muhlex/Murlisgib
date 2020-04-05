@@ -18,10 +18,10 @@
 #define SND_KILLSTREAK_3 "ui/xp_milestone_03.wav"
 #define SND_KILLSTREAK_4 "ui/xp_milestone_04.wav"
 #define SND_KILLSTREAK_5 "ui/xp_milestone_05.wav"
-#define SND_KILLSTREAK_VOLUME 0.16
+#define SND_KILLSTREAK_VOLUME 0.35
 
 #define SND_KILLSTREAK_MILESTONE "ui/xp_levelup.wav"
-#define SND_KILLSTREAK_MILESTONE_VOLUME 0.3
+#define SND_KILLSTREAK_MILESTONE_VOLUME 0.5
 
 ConVar g_cv_gib_killstreaks_announce_text;
 ConVar g_cv_gib_killstreaks_announce_sound;
