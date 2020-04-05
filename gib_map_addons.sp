@@ -3,15 +3,15 @@
 
 #include <sourcemod>
 
-#define MAPNAME_OCTAGON "mg_octagon"
+#define MAPNAME_OCTAGON "workshop/1868824155/mg_octagon"
 
-char szCurrentMap[128];
+char g_szCurrentMap[128];
 
 public Plugin myinfo =
 {
-	name = "Murlisgib Debugging Plugin",
+	name = "Murlisgib Map Add-Ons",
 	author = "murlis",
-	description = "Provides Debugging Commands to Admins.",
+	description = "Provides Integration with official Murlisgib Maps.",
 	version = "1.0",
 	url = "http://steamcommunity.com/id/muhlex"
 };
@@ -47,7 +47,7 @@ public void OnPluginStart()
 
 public void OnMapStart()
 {
-	GetCurrentMap(szCurrentMap, sizeof(szCurrentMap));
+	GetCurrentMap(g_szCurrentMap, sizeof(g_szCurrentMap));
 }
 
 public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDontBroadcast)
@@ -57,10 +57,10 @@ public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDon
 	if (!IsClientInGame(iClient))
 		return;
 
-	if (StrEqual(szCurrentMap, MAPNAME_OCTAGON))
+	if (StrEqual(g_szCurrentMap, MAPNAME_OCTAGON))
 	{
 		DisableMovement(iClient);
-		CreateTimer(0.4, Timer_EnableMovement, GetClientUserId(iClient))
+		CreateTimer(0.4, Timer_EnableMovement, GetClientUserId(iClient));
 	}
 }
 
