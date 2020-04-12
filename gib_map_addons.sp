@@ -60,7 +60,7 @@ public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDon
 	if (StrEqual(g_szCurrentMap, MAPNAME_OCTAGON))
 	{
 		DisableMovement(iClient);
-		CreateTimer(0.4, Timer_EnableMovement, GetClientUserId(iClient));
+		CreateTimer(0.5, Timer_EnableMovement, GetClientUserId(iClient));
 	}
 }
 
