@@ -11,9 +11,6 @@
 
 ConVar g_cv_mp_t_default_secondary;
 ConVar g_cv_mp_ct_default_secondary;
-ConVar g_cv_mp_teamname_1;
-ConVar g_cv_mp_teamname_2;
-ConVar g_cv_mp_default_team_winner_no_objective;
 ConVar g_cv_mp_respawn_on_death_t;
 ConVar g_cv_mp_respawn_on_death_ct;
 
@@ -93,32 +90,11 @@ int FindWinner()
 	return iWinner;
 }
 
-void SetWinnerOnScoreboard(int iClient)
-{
-	// Reset Winner
-	if (iClient == 0)
-	{
-		g_cv_mp_teamname_1.SetString(" ");
-		g_cv_mp_teamname_2.SetString(" ");
-		g_cv_mp_default_team_winner_no_objective.SetInt(CS_TEAM_NONE);
-	}
-	else
-	{
-		char szClientName[33];
-		GetClientName(iClient, szClientName, sizeof(szClientName));
-
-		g_cv_mp_teamname_1.SetString(szClientName);
-		g_cv_mp_teamname_2.SetString(szClientName);
-		g_cv_mp_default_team_winner_no_objective.SetInt(GetClientTeam(iClient));
-	}
-}
-
 void ResetRound()
 {
 	// Reset Winner
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 	dGibData.SetInt("iWinner", 0);
-	SetWinnerOnScoreboard(0);
 }
 
 void ResetPlayer(int iClient)
@@ -128,7 +104,6 @@ void ResetPlayer(int iClient)
 	// Find new Winner (if Client was the winning Player)
 	int iWinner = FindWinner();
 	dGibData.SetInt("iWinner", iWinner);
-	SetWinnerOnScoreboard(iWinner);
 
 	// Reset Kill-Count
 	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
@@ -137,8 +112,8 @@ void ResetPlayer(int iClient)
 
 void UpdateScore(int iClient, int iKills)
 {
-	Client_SetScore(iClient, iKills);
-	CS_SetClientContributionScore(iClient, iKills);
+	Client_SetScore(iClient, iKills); // sets Kills on Scoreboard
+	CS_SetClientContributionScore(iClient, iKills); // sets actual Score on Scoreboard
 }
 
 /*
@@ -155,7 +130,6 @@ public void OnPluginStart()
 	//HookEvent("round_end",    GameEvent_RoundEnd); // Using CS_OnTerminateRound instead
 	HookEvent("player_death", GameEvent_PlayerDeath);
 	HookEvent("player_spawn", GameEvent_PlayerSpawn);
-	HookEvent("round_mvp",    GameEvent_RoundMVP, EventHookMode_Pre);
 	AddTempEntHook("Shotgun Shot", TEHook_FireBullets);
 
 	InitializeServer();
@@ -168,15 +142,8 @@ public void OnPluginStart()
 
 public void OnConfigsExecuted()
 {
-	// Cache Teamnames and Winner-Team
-	g_cv_mp_teamname_1                       = FindConVar("mp_teamname_1");
-	g_cv_mp_teamname_2                       = FindConVar("mp_teamname_2");
-	g_cv_mp_default_team_winner_no_objective = FindConVar("mp_default_team_winner_no_objective");
 	g_cv_mp_respawn_on_death_t               = FindConVar("mp_respawn_on_death_t");
 	g_cv_mp_respawn_on_death_ct              = FindConVar("mp_respawn_on_death_ct");
-
-	// Set these to the default Value
-	SetWinnerOnScoreboard(0);
 
 	// The default Secondary defines the Weapon to be used as Railgun
 	g_cv_mp_t_default_secondary  = FindConVar("mp_t_default_secondary");
@@ -277,14 +244,14 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 	int iVictim = GetClientOfUserId(GetEventInt(eEvent, "userid"));
 
 	// Exclude invalid Cases where Victim is no longer ingame
-	if (!Client_IsIngame(iVictim))
-	{
-		return;
-	}
+	if (!Client_IsIngame(iVictim)) return;
 
 	Dynamic dGibData = Dynamic.GetSettings().GetDynamic("gib_data");
 	Dynamic dGibVictimData = Dynamic.GetPlayerSettings(iVictim).GetDynamic("gib_data");
 	Dynamic dGibAttackerData = Dynamic.GetPlayerSettings(iAttacker).GetDynamic("gib_data");
+
+	// Only continue if round is in progress
+	if (!dGibData.GetBool("bRoundInProgress")) return;
 
 	// Check for Suicide
 	if (iVictim == iAttacker || iAttacker == 0)
@@ -302,11 +269,10 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 			// Find new Winner
 			int iWinner = FindWinner();
 			dGibData.SetInt("iWinner", iWinner);
-			SetWinnerOnScoreboard(iWinner);
 		}
 
 		// Send current Kills and Points to the Scoreboard
-		// This needs to always be done instantly after death, as well as on Respawn
+		// This needs to always be done on death, as well as on Respawn
 		UpdateScore(iVictim, iVictimKills);
 	}
 	else if (Client_IsIngame(iAttacker))
@@ -314,6 +280,9 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		// Update Attacker's Kill-Count
 		int iAttackerKills = dGibAttackerData.GetInt("iKills");
 		dGibAttackerData.SetInt("iKills", ++iAttackerKills);
+
+		// RequestFrame to update scoreboard kill count on next tick
+		RequestFrame(RequestFrame_PlayerGetKill, GetClientUserId(iAttacker));
 
 		// Get currently winning Player
 		int iWinner = dGibData.GetInt("iWinner", 0);
@@ -330,30 +299,35 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 		}
 
 		// Check if there was no Winner or if the current Kill made the Attacker the new winning Player
-		if (dGibData.GetBool("bRoundInProgress"))
+		if (iWinner == 0)
 		{
-			if (iWinner == 0)
-			{
-				// Find new Winner
-				iWinner = FindWinner();
-				dGibData.SetInt("iWinner", iWinner);
-				SetWinnerOnScoreboard(iWinner);
-			}
-			else if (iAttackerKills > iWinnerKills)
-			{
-				// Set Attacker as Winner
-				dGibData.SetInt("iWinner", iAttacker);
-				SetWinnerOnScoreboard(iAttacker);
-			}
+			// Find new Winner
+			iWinner = FindWinner();
+			dGibData.SetInt("iWinner", iWinner);
+		}
+		else if (iAttackerKills > iWinnerKills)
+		{
+			// Set Attacker as Winner
+			dGibData.SetInt("iWinner", iAttacker);
 		}
 	}
+}
+
+void RequestFrame_PlayerGetKill(int iUserID)
+{
+	int iClient = GetClientOfUserId(iUserID);
+	if (!iClient || !IsClientInGame(iClient)) return;
+
+	// Update Scoreboard
+	Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
+	UpdateScore(iClient, dGibPlayerData.GetInt("iKills"));
 }
 
 public Action GameEvent_PlayerSpawn(Event eEvent, const char[] szName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(GetEventInt(eEvent, "userid"));
 
-	RequestFrame(RequestFrame_PlayerSpawn, GetClientUserId(iClient)); // NOTICE: This might leave open a single Frame on which Kills are decremented by one
+	RequestFrame(RequestFrame_PlayerSpawn, GetClientUserId(iClient)); // NOTICE: This might leave open a single tick on which Kills appear decremented by one
 
 	// Check if a replacement Weapon was given at Spawn. (E.g. USP-S instead of P2000)
 	// If so, equip the Player with the correct Weapon
@@ -383,15 +357,6 @@ void RequestFrame_PlayerSpawn(int iUserID)
 		Dynamic dGibPlayerData = Dynamic.GetPlayerSettings(iClient).GetDynamic("gib_data");
 		UpdateScore(iClient, dGibPlayerData.GetInt("iKills"));
 	}
-}
-
-public Action GameEvent_RoundMVP(Event eEvent, const char[] szName, bool bDontBroadcast)
-{
-	// Disable MVP Display on Round-End
-	SetEventInt(eEvent, "userid", 0);
-	SetEventInt(eEvent, "reason", 0);
-
-	return Plugin_Continue;
 }
 
 /*

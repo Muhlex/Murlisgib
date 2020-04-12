@@ -224,7 +224,12 @@ public Action Timer_StatDisplay(Handle hTimer, DataPack dpString)
 
 public Action Timer_EndGame(Handle hTimer, int iMaxrounds)
 {
-	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, 1);
+	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, 0);
+	CreateTimer(0.5, Timer_EndGame2, iMaxrounds);
+}
+
+public Action Timer_EndGame2(Handle hTimer, int iMaxrounds)
+{
 	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, iMaxrounds);
 }
 
