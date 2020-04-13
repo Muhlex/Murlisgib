@@ -6,7 +6,7 @@
 #include <murlisgib>
 
 #define PATH_CONFIG /* SOURCEMOD PATH/ */ "configs/gib_messages.cfg"
-#define MESSAGE_MAX_LENGTH 256
+#define MESSAGE_MAX_LENGTH 512
 #define FALLBACK_DEFAULT_COLOR "\x01" // white
 
 StringMap g_smMessages;
@@ -176,10 +176,16 @@ public Action Event_PlayerConnect(Event eEvent, const char[] szName, bool bDontB
 
 public Action Command_Help(int iClient, int iArgs)
 {
-	ArrayList szMessages = new ArrayList(MESSAGE_MAX_LENGTH);
-	char szMessage[MESSAGE_MAX_LENGTH];
+	ArrayList szMessageArray = new ArrayList(MESSAGE_MAX_LENGTH);
+	g_smMessages.GetValue("menu_help", szMessageArray);
 
-	g_smMessages.GetValue("menu_help", szMessages);
-	szMessages.GetString(0, szMessage, sizeof(szMessage));
+	char szHelpPage[2];
+	GetCmdArg(1, szHelpPage, sizeof(szHelpPage));
+	int iHelpPage = StringToInt(szHelpPage) - 1;
+	if (!(0 < iHelpPage < szMessageArray.Length))
+		iHelpPage = 0;
+
+	char szMessage[MESSAGE_MAX_LENGTH];
+	szMessageArray.GetString(iHelpPage, szMessage, sizeof(szMessage));
 	PrintMessageToChat(iClient, szMessage, sizeof(szMessage));
 }
