@@ -1,1 +1,155 @@
-../../../../gamemodes_server.txt
+// To use this file, rename it to GameModes_Server.txt
+//
+// Values here override the default gamemodes.txt
+
+"GameModes_Server.txt"
+{
+	"gameTypes"
+	{
+		"gungame"
+		{
+			"gameModes"
+			{
+				"deathmatch"
+				{
+					"nameID"			"Murlisgib"
+					"descID"			"Murlisgib"
+					"descID_List"		"Murlisgib"
+
+					"ui"
+					{
+
+						"0"		{ "label" ""				"value" "" }
+						"1"		{ "label" ""				"value" "" }
+						"2"		{ "label" ""				"value" "" }
+						"3"		{ "label" ""				"value" "" }
+					}
+
+					"maxplayers"		"2"
+
+					"exec"
+					{
+						"exec"					"gib.cfg"
+					}
+
+					"mapgroupsMP"						// List of mapgroups valid for this game mode
+					{
+						//"mg_bomb_se"		""
+					}
+				}
+			}
+		}
+		"classic"
+		{
+			"gameModes"
+			{
+				"casual"
+				{
+					"maxplayers"		"6"
+
+					"exec"
+					{
+						"exec"					"gib.cfg"
+					}
+
+					"mapgroupsMP"						// List of mapgroups valid for this game mode
+					{
+						//"mg_bomb_se"		""
+					}
+				}
+			}
+		}
+	}
+
+// Heavy Player Models:
+//"tm_phoenix_heavy" ""
+//"ctm_heavy" ""
+
+	"maps"
+	{
+		"mg_gradient"
+		{
+			"name"				 "mg_gradient"
+			"t_models"
+			{
+				"ctm_heavy" ""
+			}
+			"ct_models"
+			{
+				"ctm_heavy" ""
+			}
+		}
+		"mg_octagon"
+		{
+			"name"				 "mg_octagon"
+			"t_models"
+			{
+				"ctm_heavy" ""
+			}
+			"ct_models"
+			{
+				"ctm_heavy" ""
+			}
+		}
+		"mg_cohg"
+		{
+			"name"				 "mg_cohg"
+			"t_models"
+			{
+				"ctm_heavy" ""
+			}
+			"ct_models"
+			{
+				"ctm_heavy" ""
+			}
+		}
+		"*"
+		{
+			"t_models"
+			{
+				"ctm_heavy" ""
+			}
+			"ct_models"
+			{
+				"ctm_heavy" ""
+			}
+		}
+	}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Map groups
+//
+// To use a mapgroup, it needs to be defined in a keyvalues
+// block such as the example below, as well as listed in the
+// 'mapgroupsMP' block within the game mode that will run it,
+// such as the example above.
+//
+// Then launch the server with '+mapgroup MAPGROUPNAME'
+//
+// Example:
+//
+// srcds -game csgo +game_mode 1 +mapgroup mg_bomb_se +map de_nuke_se
+//
+//
+// Check the developer wiki for updated community info
+// https://developer.valvesoftware.com/wiki/Counter-Strike:_Global_Offensive_Dedicated_Servers
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	"mapgroups"
+	{
+		"mg_bomb_se"									// mapgroup definition
+		{
+			"name"			"mg_bomb_se"
+			"maps"
+			{
+				"de_dust_se"		""
+				"de_dust2_se"		""
+				"de_nuke_se"		""
+				"de_train_se"		""
+				"de_inferno_se"		""
+				"de_aztec_se"		""
+			}
+		}
+	}
+}
