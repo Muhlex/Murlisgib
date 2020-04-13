@@ -14,7 +14,7 @@ StringMap g_smColors;
 
 public Plugin myinfo =
 {
-	name = "Murlisgib Help",
+	name = "Murlisgib Messages",
 	author = "murlis",
 	description = "Messages on game events, timed messages and help menues.",
 	version = "1.0",
@@ -118,15 +118,39 @@ void LoadConfig()
 	{
 		if (!kvConfig.GotoFirstSubKey(false))
 			SetFailState("Messages section exists but no messages were defined.");
+
 		// Loop and save all message strings
 		do {
 			kvConfig.GetSectionName(szKey, sizeof(szKey));
-			kvConfig.GetString(NULL_STRING, szValue, sizeof(szValue));
 
-			// Convert color keys to chat color values (mutates szValue)
-			ColorKeysToValues(szValue, sizeof(szValue), g_smColors);
+			if (kvConfig.GotoFirstSubKey(false)) // check if message is actually an array of messages
+			{
+				// Import array of messages
+				ArrayList szValues = new ArrayList(MESSAGE_MAX_LENGTH);
+				do {
+					kvConfig.GetString(NULL_STRING, szValue, sizeof(szValue));
+					PrintToServer("<%s> %s", szKey, szValue);
 
-			g_smMessages.SetString(szKey, szValue);
+					// Convert color keys to chat color values (mutates szValue)
+					ColorKeysToValues(szValue, sizeof(szValue), g_smColors);
+
+					szValues.PushString(szValue);
+
+				} while (kvConfig.GotoNextKey(false));
+
+				g_smMessages.SetValue(szKey, szValues);
+			}
+			else
+			{
+				// Import single message
+				kvConfig.GetString(NULL_STRING, szValue, sizeof(szValue));
+				PrintToServer("<%s> %s", szKey, szValue);
+
+				// Convert color keys to chat color values (mutates szValue)
+				ColorKeysToValues(szValue, sizeof(szValue), g_smColors);
+
+				g_smMessages.SetString(szKey, szValue);
+			}
 
 		} while (kvConfig.GotoNextKey(false));
 	}
@@ -135,6 +159,8 @@ void LoadConfig()
 public void OnPluginStart()
 {
 	HookEvent("player_connect_full", Event_PlayerConnect, EventHookMode_Pre);
+
+	RegConsoleCmd("sm_help", Command_Help, "Show Murlisgib quick help.");
 
 	LoadConfig();
 }
@@ -145,5 +171,15 @@ public Action Event_PlayerConnect(Event eEvent, const char[] szName, bool bDontB
 
 	char szMessage[MESSAGE_MAX_LENGTH];
 	g_smMessages.GetString("connect", szMessage, sizeof(szMessage));
+	PrintMessageToChat(iClient, szMessage, sizeof(szMessage));
+}
+
+public Action Command_Help(int iClient, int iArgs)
+{
+	ArrayList szMessages = new ArrayList(MESSAGE_MAX_LENGTH);
+	char szMessage[MESSAGE_MAX_LENGTH];
+
+	g_smMessages.GetValue("menu_help", szMessages);
+	szMessages.GetString(0, szMessage, sizeof(szMessage));
 	PrintMessageToChat(iClient, szMessage, sizeof(szMessage));
 }
