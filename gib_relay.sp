@@ -8,11 +8,6 @@
 
 #include <murlisgib>
 
-#define COLOR_PRIMARY "#FFFFFF"
-#define COLOR_SECONDARY "#75818E"
-#define COLOR_HIGHLIGHT_HEX "#E4AE39"
-#define COLOR_LOWLIGHT_HEX "#B0C3D9"
-
 #define SND_RELAY_PASSED "ui/panorama/inventory_new_item_01.wav"
 #define SND_RELAY_PASSED_VOLUME 0.1
 
@@ -87,22 +82,22 @@ void DisplayRelay(int iVictim = 0, int iAttacker = 0)
 
 	if (iVictim > 0 && iAttacker == 0)
 	{
-		Format(szMessage, sizeof(szMessage), "<font color='%s'>[%s]</font> <font color='%s'>%s</font> <font color='%s'>✖</font>",
-		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY);
+		Format(szMessage, sizeof(szMessage), "[%s] ✖︎ %s",
+		szPrefix, szVictimName);
 
 		Sound_PlayUIAll(SND_RELAY_LOST, SND_RELAY_LOST_VOLUME);
 	}
 	else if (iVictim == 0 && iAttacker > 0)
 	{
-		Format(szMessage, sizeof(szMessage), "<font color='%s'>[%s]</font> <font color='%s'>%s</font> <font color='%s'>✔</font>",
-		COLOR_SECONDARY, szPrefix, COLOR_HIGHLIGHT_HEX, szAttackerName, COLOR_PRIMARY);
+		Format(szMessage, sizeof(szMessage), "[%s] ➡ %s",
+		szPrefix, szAttackerName);
 
 		Sound_PlayUIAll(SND_RELAY_PASSED, SND_RELAY_PASSED_VOLUME);
 	}
 	else if (iVictim > 0 && iAttacker > 0)
 	{
-		Format(szMessage, sizeof(szMessage), "<font color='%s'>[%s]</font> <font color='%s'>%s</font> <font color='%s'>➡</font> <font color='%s'>%s</font>",
-		COLOR_SECONDARY, szPrefix, COLOR_LOWLIGHT_HEX, szVictimName, COLOR_PRIMARY, COLOR_HIGHLIGHT_HEX, szAttackerName);
+		Format(szMessage, sizeof(szMessage), "[%s] %s ➡ %s",
+		szPrefix, szVictimName, szAttackerName);
 
 		Sound_PlayUIAll(SND_RELAY_PASSED, SND_RELAY_PASSED_VOLUME);
 	}
