@@ -41,32 +41,6 @@ void ColorKeysToValues(char[] szString, const int iStrLen, const StringMap smCol
 	}
 }
 
-void PrintMessageToChat(int iClient, const char[] szMessage, const int iMsgLen)
-{
-	char[] szCurrLine    = new char[iMsgLen];
-	char[] szMessageRest = new char[iMsgLen];
-	char szColor[5];
-	int iCurrPos;
-	strcopy(szMessageRest, iMsgLen, szMessage);
-
-	while (iCurrPos != -1)
-	{
-		// Apply default color to beginning of message rest
-		g_smColors.GetString("default", szColor, sizeof(szColor));
-		Format(szMessageRest, iMsgLen, " %s%s", szColor, szMessageRest);
-
-		iCurrPos = SplitString(szMessageRest, "\\n", szCurrLine, iMsgLen);
-
-		if (iCurrPos != -1)
-		{
-			Substring(szMessageRest, iMsgLen, szMessageRest, iMsgLen, iCurrPos, iMsgLen - 1);
-			PrintToChat(iClient, szCurrLine);
-		}
-		else
-			PrintToChat(iClient, szMessageRest);
-	}
-}
-
 void LoadConfig()
 {
 	char szConfigPath[PLATFORM_MAX_PATH];
@@ -156,9 +130,68 @@ void LoadConfig()
 	}
 }
 
+void PrintMessageToChatFormatted(int iClient, const char[] szFormattedMessage, const int iMsgLen)
+{
+	char[] szCurrLine    = new char[iMsgLen];
+	char[] szMessageRest = new char[iMsgLen];
+	char szColor[5];
+	int iCurrPos;
+	strcopy(szMessageRest, iMsgLen, szFormattedMessage);
+
+	while (iCurrPos != -1)
+	{
+		// Apply default color to beginning of message rest
+		g_smColors.GetString("default", szColor, sizeof(szColor));
+		Format(szMessageRest, iMsgLen, " %s%s", szColor, szMessageRest);
+
+		iCurrPos = SplitString(szMessageRest, "\\n", szCurrLine, iMsgLen);
+
+		if (iCurrPos != -1)
+		{
+			Substring(szMessageRest, iMsgLen, szMessageRest, iMsgLen, iCurrPos, iMsgLen - 1);
+
+			if (iClient == -1)
+				PrintToChatAll(szCurrLine);
+			else
+				PrintToChat(iClient, szCurrLine);
+		}
+		else
+		{
+			if (iClient == -1)
+				PrintToChatAll(szMessageRest);
+			else
+				PrintToChat(iClient, szMessageRest);
+		}
+	}
+}
+
+void PrintMessageToChat(int iClient, const char[] szMessageInput, const int iMsgLen, any ...)
+{
+	char szMessage[MESSAGE_MAX_LENGTH];
+	VFormat(szMessage, iMsgLen, szMessageInput, 4);
+	PrintMessageToChatFormatted(iClient, szMessage, iMsgLen);
+}
+
+void PrintMessageToChatAll(const char[] szMessageInput, const int iMsgLen, any ...)
+{
+	char szMessage[MESSAGE_MAX_LENGTH];
+	VFormat(szMessage, iMsgLen, szMessageInput, 3);
+	PrintMessageToChatFormatted(-1, szMessage, iMsgLen);
+}
+
+void GetClientIdentifier(char[] szMessage, int iMsgLen, int iClient)
+{
+	if (IsFakeClient(iClient))
+		g_smMessages.GetString("global.player.identifier.bot", szMessage, iMsgLen);
+	else
+		g_smMessages.GetString("global.player.identifier.player", szMessage, iMsgLen);
+}
+
 public void OnPluginStart()
 {
-	HookEvent("player_connect_full", Event_PlayerConnect, EventHookMode_Pre);
+	HookEvent("player_connect_full", Event_PlayerConnect);
+	HookEvent("player_disconnect", Event_PlayerDisconnect, EventHookMode_Pre);
+	HookEvent("player_team", Event_PlayerTeam, EventHookMode_Pre);
 
 	RegConsoleCmd("sm_help", Command_Help, "Show Murlisgib quick help.");
 
@@ -170,14 +203,71 @@ public Action Event_PlayerConnect(Event eEvent, const char[] szName, bool bDontB
 	int iClient = GetClientOfUserId(eEvent.GetInt("userid"));
 
 	char szMessage[MESSAGE_MAX_LENGTH];
-	g_smMessages.GetString("connect", szMessage, sizeof(szMessage));
+	g_smMessages.GetString("local.player.connect", szMessage, sizeof(szMessage));
 	PrintMessageToChat(iClient, szMessage, sizeof(szMessage));
+}
+
+public Action Event_PlayerDisconnect(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	int iClient = GetClientOfUserId(eEvent.GetInt("userid"));
+	char szReason[256];
+	eEvent.GetString("reason", szReason, sizeof(szReason)); //add default value maybe?
+
+	char szMessage[MESSAGE_MAX_LENGTH];
+	char szClientIdentifier[16];
+	GetClientIdentifier(szClientIdentifier, sizeof(szClientIdentifier), iClient);
+
+	if (StrContains(szReason, "disconnect", false) != -1)
+	{
+		g_smMessages.GetString("global.player.disconnect.self", szMessage, sizeof(szMessage));
+		PrintMessageToChatAll(szMessage, sizeof(szMessage), szClientIdentifier, iClient);
+	}
+	else if (StrContains(szReason, "kick", false) != -1)
+	{
+		g_smMessages.GetString("global.player.disconnect.kick", szMessage, sizeof(szMessage));
+		PrintMessageToChatAll(szMessage, sizeof(szMessage), szClientIdentifier, iClient);
+	}
+	else
+	{
+		g_smMessages.GetString("global.player.disconnect.other", szMessage, sizeof(szMessage));
+		PrintMessageToChatAll(szMessage, sizeof(szMessage), szClientIdentifier, iClient, szReason);
+	}
+
+	eEvent.BroadcastDisabled = true;
+	return Plugin_Changed;
+}
+
+public Action Event_PlayerTeam(Event eEvent, const char[] szName, bool bDontBroadcast)
+{
+	if (
+		bDontBroadcast
+		|| eEvent.GetBool("disconnect")
+		|| eEvent.GetBool("silent")
+	) return Plugin_Continue;
+
+	int iClient = GetClientOfUserId(eEvent.GetInt("userid"));
+	int iTeam = eEvent.GetInt("team");
+
+	eEvent.SetBool("silent", true);
+
+	char szMessage[MESSAGE_MAX_LENGTH];
+	char szClientIdentifier[16];
+	GetClientIdentifier(szClientIdentifier, sizeof(szClientIdentifier), iClient);
+
+	if (iTeam == CS_TEAM_SPECTATOR)
+		g_smMessages.GetString("global.player.join.spec", szMessage, sizeof(szMessage));
+	else
+		g_smMessages.GetString("global.player.join.team", szMessage, sizeof(szMessage));
+
+	PrintMessageToChatAll(szMessage, sizeof(szMessage), szClientIdentifier, iClient);
+
+	return Plugin_Changed;
 }
 
 public Action Command_Help(int iClient, int iArgs)
 {
 	ArrayList szMessageArray = new ArrayList(MESSAGE_MAX_LENGTH);
-	g_smMessages.GetValue("menu_help", szMessageArray);
+	g_smMessages.GetValue("menu.help", szMessageArray);
 
 	char szHelpPage[2];
 	GetCmdArg(1, szHelpPage, sizeof(szHelpPage));
