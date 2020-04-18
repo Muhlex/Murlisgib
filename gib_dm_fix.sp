@@ -81,7 +81,7 @@ public Action Event_TextMsg(UserMsg msgID, Handle hPb, const int[] iPlayers, int
 		// Block chat messages for DM-Points on Kill
 		char szText[64];
 		PbReadString(hPb, "params", szText, sizeof(szText),0);
-		if (StrContains(szText, "#Player_Point_Award_Killed_Enemy_", false) != -1)
+		if (StrContains(szText, "#Player_Point_Award_", false) != -1)
 			return Plugin_Handled;
 	}
 	return Plugin_Continue;
