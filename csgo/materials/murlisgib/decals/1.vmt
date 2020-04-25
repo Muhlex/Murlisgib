@@ -1,0 +1,14 @@
+LightmappedGeneric
+{
+$vertexcolor 1
+$vertexalpha 1
+
+$translucent 1
+$baseTexture "murlisgib\decals\1"
+$decal 1
+$decalscale "0.15"
+$decalScaleVariation "0.1"
+
+$decalfadetime "6.0"
+$decalfadeduration "10.0"
+}

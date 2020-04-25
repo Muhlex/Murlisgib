@@ -224,7 +224,12 @@ public Action Timer_StatDisplay(Handle hTimer, DataPack dpString)
 
 public Action Timer_EndGame(Handle hTimer, int iMaxrounds)
 {
-	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, 1);
+	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, 0);
+	CreateTimer(0.5, Timer_EndGame2, iMaxrounds);
+}
+
+public Action Timer_EndGame2(Handle hTimer, int iMaxrounds)
+{
 	ConVar_ChangeSilentInt(g_cv_mp_maxrounds, iMaxrounds);
 }
 
@@ -236,7 +241,7 @@ public Action Timer_EndGame(Handle hTimer, int iMaxrounds)
 public void OnPluginStart()
 {
 	g_cv_gib_stats_enable                = CreateConVar("gib_stats_enable", "1", "Enable Stat-Display on Round End.");
-	g_cv_gib_stats_kills                 = CreateConVar("gib_stats_kills", "1", "Display highest Kill-Counts.");
+	g_cv_gib_stats_kills                 = CreateConVar("gib_stats_kills", "0", "Display highest Kill-Counts.");
 	g_cv_gib_stats_railgun_headshots     = CreateConVar("gib_stats_railgun_headshots", "1", "Display highest Railgun Headshot-Counts.");
 	g_cv_gib_stats_killstreak            = CreateConVar("gib_stats_killstreak", "1", "Display highest Killstreaks.");
 	g_cv_gib_stats_longest_distance_kill = CreateConVar("gib_stats_longest_distance_kill", "1", "Display longest Distance Kills.");

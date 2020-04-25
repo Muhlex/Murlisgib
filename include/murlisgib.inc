@@ -11,6 +11,55 @@
 
 /*
  *
+ * String Functions
+ */
+
+stock bool Substring(char[] dest, const int destSize, const char[] source, const int sourceSize, const int start, const int end)
+{
+	if (end < start || end > (sourceSize - 1)) {
+		strcopy(dest, destSize, NULL_STRING);
+		return false;
+	}
+	else {
+		strcopy(dest, (end - start + 1), source[start]);
+		return true;
+	}
+}
+
+stock bool ConvertColorCode(const char[] szInput, char[] szOutput, const int iOutLen)
+{
+	char asciiCodes[][] =
+	{
+		"\x00",
+		"\x01",
+		"\x02",
+		"\x03",
+		"\x04",
+		"\x05",
+		"\x06",
+		"\x07",
+		"\x08",
+		"\x09",
+		"\x0a",
+		"\x0b",
+		"\x0c",
+		"\x0d",
+		"\x0e",
+		"\x0f",
+		"\x10"
+	};
+
+	int iColorHex = StringToInt(szInput, 16);
+	if (0 < iColorHex < sizeof(asciiCodes))
+	{
+		strcopy(szOutput, iOutLen, asciiCodes[iColorHex]);
+		return true;
+	}
+	else return false;
+}
+
+/*
+ *
  * Entity Functions
  */
 
@@ -57,7 +106,7 @@ stock bool Entity_CreateForClientByName(int iClient, const char[] szEntityName)
 
 stock void Sound_PlayUIClient(int iClient, const char[] szSound, float fVolume)
 {
-	EmitSoundToClient(iClient, szSound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, fVolume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, true, 0.0);
+	EmitSoundToClient(iClient, szSound, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, fVolume, SNDPITCH_NORMAL, -1, NULL_VECTOR, NULL_VECTOR, false, 0.0);
 }
 
 stock void Sound_PlayUIAll(const char[] szSound, float fVolume)
@@ -67,7 +116,7 @@ stock void Sound_PlayUIAll(const char[] szSound, float fVolume)
 
 stock void Sound_PlayWorldAll(int iEmitFromEntity, const char[] szSound, float fVolume, int iLevel, int iPitch = SNDPITCH_NORMAL, const float vOrigin[3], const float vDir[3] = NULL_VECTOR)
 {
-	LOOP_CLIENTS (iClient, CLIENTFILTER_ALIVE)
+	LOOP_CLIENTS (iClient, CLIENTFILTER_INGAMEAUTH)
 	{
 		if (iClient == iEmitFromEntity)
 		{
