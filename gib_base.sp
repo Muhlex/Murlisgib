@@ -250,9 +250,6 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 	Dynamic dGibVictimData = Dynamic.GetPlayerSettings(iVictim).GetDynamic("gib_data");
 	Dynamic dGibAttackerData = Dynamic.GetPlayerSettings(iAttacker).GetDynamic("gib_data");
 
-	// Only continue if round is in progress
-	if (!dGibData.GetBool("bRoundInProgress")) return;
-
 	// Check for Suicide
 	if (iVictim == iAttacker || iAttacker == 0)
 	{
@@ -260,7 +257,7 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 
 		// Check if Suicide Penalty is enabled
 		int iSuicidePenalty = g_cv_gib_score_suicide_penalty.IntValue;
-		if (iSuicidePenalty != 0)
+		if (dGibData.GetBool("bRoundInProgress") && iSuicidePenalty != 0)
 		{
 			// Apply Suicide Penalty
 			iVictimKills += iSuicidePenalty;
@@ -279,37 +276,43 @@ public Action GameEvent_PlayerDeath(Event eEvent, const char[] szName, bool bDon
 	{
 		// Update Attacker's Kill-Count
 		int iAttackerKills = dGibAttackerData.GetInt("iKills");
-		dGibAttackerData.SetInt("iKills", ++iAttackerKills);
+
+		if (dGibData.GetBool("bRoundInProgress"))
+		{
+			dGibAttackerData.SetInt("iKills", ++iAttackerKills);
+			PrintToServer("Killcount increased");
+
+			// Get currently winning Player
+			int iWinner = dGibData.GetInt("iWinner", 0);
+			int iWinnerKills;
+
+			// Check if a Winner exists
+			if (Client_IsIngame(iWinner))
+			{
+				// Get Winner's Kills
+				Dynamic dGibWinnerData = Dynamic.GetPlayerSettings(iWinner).GetDynamic("gib_data");
+				iWinnerKills = dGibWinnerData.GetInt("iKills");
+				// Get Attacker's Kills
+				iAttackerKills = dGibAttackerData.GetInt("iKills");
+			}
+
+			// Check if there was no Winner or if the current Kill made the Attacker the new winning Player
+			if (iWinner == 0)
+			{
+				// Find new Winner
+				iWinner = FindWinner();
+				dGibData.SetInt("iWinner", iWinner);
+			}
+			else if (iAttackerKills > iWinnerKills)
+			{
+				// Set Attacker as Winner
+				dGibData.SetInt("iWinner", iAttacker);
+			}
+		}
 
 		// RequestFrame to update scoreboard kill count on next tick
+		PrintToServer("Sent to scoreboard");
 		RequestFrame(RequestFrame_PlayerGetKill, GetClientUserId(iAttacker));
-
-		// Get currently winning Player
-		int iWinner = dGibData.GetInt("iWinner", 0);
-		int iWinnerKills;
-
-		// Check if a Winner exists
-		if (Client_IsIngame(iWinner))
-		{
-			// Get Winner's Kills
-			Dynamic dGibWinnerData = Dynamic.GetPlayerSettings(iWinner).GetDynamic("gib_data");
-			iWinnerKills = dGibWinnerData.GetInt("iKills");
-			// Get Attacker's Kills
-			iAttackerKills = dGibAttackerData.GetInt("iKills");
-		}
-
-		// Check if there was no Winner or if the current Kill made the Attacker the new winning Player
-		if (iWinner == 0)
-		{
-			// Find new Winner
-			iWinner = FindWinner();
-			dGibData.SetInt("iWinner", iWinner);
-		}
-		else if (iAttackerKills > iWinnerKills)
-		{
-			// Set Attacker as Winner
-			dGibData.SetInt("iWinner", iAttacker);
-		}
 	}
 }
 
